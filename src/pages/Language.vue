@@ -1,16 +1,15 @@
 <script setup lang="ts">
     import { ref, onMounted, reactive, watch } from 'vue';
     import { useLanguagesStore } from '../store/languages';
-    import { useRouter, RouterView, onBeforeRouteUpdate } from 'vue-router'
+    import { useRouter, RouterView } from 'vue-router'
     import { show_error } from '../utils/function';
     import AddLanguage from '../components/AddLanguage.vue';
     import { storeToRefs } from 'pinia';
-
+    
     const router = useRouter();
     const languagesStore = useLanguagesStore();
     const {languages} = storeToRefs(languagesStore);
     const treeDom = ref(null);
-    const isAdd = ref(false);
     const addLanguageRef = ref(null);
     const languagesList = ref([]);
 
@@ -46,14 +45,6 @@
         })
     })
 
-    onBeforeRouteUpdate(async (to, from) => {
-        if(to.path == "/language"){
-            isAdd.value = false;
-        }else{
-            isAdd.value = true;
-        }
-    })
-
     const loadNode = (node, resolve) => {
         if (node.level === 0) {
             return resolve([])
@@ -69,9 +60,7 @@
 
     const addClass = (data)=>{
         router.push({
-            path: "/language/add/" + data.id
-            // name: "add",
-            // params: {id: data.id}
+            path: "/class/add/" + data.id
         })
     }
     
@@ -79,14 +68,14 @@
 
 <template>
     <div class="language-root-box">
-        <div class="tool-box" v-show="!isAdd">
+        <div class="tool-box">
             <div class="add-language">
                 <el-row>
                     <el-col :span="4"><el-button type="primary" @click="addLanguage" :loading="loadingButtonObject.addLanguageBtn">添加语言</el-button></el-col>
                 </el-row>
             </div>
         </div>
-        <div class="language-list" v-show="!isAdd">
+        <div class="language-list">
             <el-tree
                 :props="defaultProps"
                 node-key="id"

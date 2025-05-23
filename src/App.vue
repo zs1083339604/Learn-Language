@@ -8,18 +8,20 @@ import {
 import { ElMessageBox, ElMessage } from 'element-plus';
 import { connect } from './utils/sqlite';
 import { getCurrentWindow } from '@tauri-apps/api/window';
-import { invoke } from '@tauri-apps/api/core';
+import { resourceDir } from '@tauri-apps/api/path';
+// import { readTextFile, BaseDirectory, exists } from '@tauri-apps/plugin-fs';
 
+// (async ()=>{
+//   console.log(await exists("datas/复杂消息3.json", { baseDir: BaseDirectory.Resource}));
+//   console.log(JSON.parse(await readTextFile("datas/复杂消息3.json", { baseDir: BaseDirectory.Resource})));
+// })()
 const inited = ref(false);
-
-connect().then(()=>{
+connect().then(async ()=>{
   inited.value = true;
-  return invoke("get_exe_path");
+  return resourceDir();
 }).then((result)=>{
-  if(result.code == 200){
-    // 说明：exe路径不放在optionStore中，是因为它不可更改
-    localStorage.setItem("exe_path", result.data.path);
-  }
+  // 说明：exe路径不放在optionStore中，是因为它不可更改
+  localStorage.setItem("exe_path", result);
 }).catch((error)=>{
   ElMessageBox.alert(error, '初始化失败', {
     confirmButtonText: 'OK',

@@ -14,7 +14,24 @@
     "core:window:allow-close",
     {
       "identifier": "http:default",
-      "allow": [{ "url": "https://speech.platform.bing.com" }]
+      "allow": [
+        {
+          "url": "https://speech.platform.bing.com"
+        }
+      ]
+    },
+    "fs:default",
+    {
+      "identifier": "fs:allow-exists",
+      "allow": [{ "path": "$RESOURCE/datas/*" }]
+    },
+    {
+      "identifier": "fs:allow-read-file",
+      "allow": [{ "path": "$RESOURCE/datas/*" }]
+    },
+    {
+      "identifier": "fs:allow-read-text-file",
+      "allow": [{ "path": "$RESOURCE/datas/*" }]
     }
   ]
 }

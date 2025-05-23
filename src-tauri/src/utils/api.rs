@@ -21,7 +21,7 @@ pub struct TTSData {
     rate: i32,
     volume: i32,
     root_path: String,
-    save_file: bool
+    save_file: bool,
 }
 
 /// 配音
@@ -173,8 +173,6 @@ pub async fn start_tts(data: TTSData) -> Result<CustomResult, CustomResult> {
         }
     }
 
-    
-
     let mut path_str = String::from("");
     let mut output_path = String::from("");
     let mut json_path = String::from("");
@@ -183,8 +181,8 @@ pub async fn start_tts(data: TTSData) -> Result<CustomResult, CustomResult> {
         if root_path.is_empty() {
             root_path = ".".to_string();
         }
-    
-        let path_buf = PathBuf::from(root_path).join(send_request_id.clone());
+
+        let path_buf = PathBuf::from(root_path).join("datas").join(send_request_id.clone());
         path_str = path_buf.display().to_string();
 
         let folder_path = Path::new(&path_str);
@@ -194,7 +192,8 @@ pub async fn start_tts(data: TTSData) -> Result<CustomResult, CustomResult> {
         }
 
         // 保存音频数据
-        let path_buf = PathBuf::from(path_str.clone()).join(format!("output_{}.mp3", send_request_id));
+        let path_buf =
+            PathBuf::from(path_str.clone()).join(format!("output_{}.mp3", send_request_id));
         output_path = path_buf.display().to_string();
         let mut file = File::create(&output_path)
             .map_err(|e| CustomResult::error(Some(format!("创建音频文件失败：{}", e)), None))?;
@@ -202,7 +201,8 @@ pub async fn start_tts(data: TTSData) -> Result<CustomResult, CustomResult> {
             .map_err(|e| CustomResult::error(Some(format!("写入音频文件失败：{}", e)), None))?;
 
         // 写入JSON数据
-        let path_buf = PathBuf::from(path_str.clone()).join(format!("output_{}.json", send_request_id));
+        let path_buf =
+            PathBuf::from(path_str.clone()).join(format!("output_{}.json", send_request_id));
         json_path = path_buf.display().to_string();
         let mut json_file = File::create(&json_path)
             .map_err(|e| CustomResult::error(Some(format!("创建JSON文件失败：{}", e)), None))?;
@@ -212,7 +212,7 @@ pub async fn start_tts(data: TTSData) -> Result<CustomResult, CustomResult> {
             .write_all(json_str.as_bytes())
             .map_err(|e| CustomResult::error(Some(format!("写入JSON文件失败：{}", e)), None))?;
     }
-    
+
     // 编码成base64
     let base64_audio = encode_audio_to_base64(None, Some(audio_data))?;
 
@@ -226,30 +226,6 @@ pub async fn start_tts(data: TTSData) -> Result<CustomResult, CustomResult> {
             "text": text
         })),
     ))
-}
-
-/// 获取exe运行路径
-///
-/// # Returns
-///
-/// * 如果获取成功，则返回 `Ok(CustomResult::success)`。
-/// * 如果获取失败，则返回 `Err(CustomResult:error)`
-#[tauri::command]
-pub async fn get_exe_path() -> Result<CustomResult, CustomResult> {
-    let exe_path = std::env::current_exe()
-        .map_err(|e| CustomResult::error(Some(format!("当前执行路径获取失败：{}", e)), None))?;
-
-    if let Some(exe_dir) = exe_path.parent() {
-        return Ok(CustomResult::success(
-            None,
-            Some(json!({"path": exe_dir.display().to_string()})),
-        ));
-    } else {
-        return Err(CustomResult::error(
-            Some(format!("无法获取可执行文件的父目录")),
-            None,
-        ));
-    }
 }
 
 /// 获取app的版本号
@@ -337,8 +313,9 @@ pub fn encode_audio_to_base64(
 
     if let Some(path) = file_path {
         // 如果提供了文件路径，则尝试读取文件
-        bytes_to_encode = fs::read(path)
-            .map_err(|e| CustomResult::error(Some(format!("读取音频文件 '{}' 失败：{}", path, e)), None))?;
+        bytes_to_encode = fs::read(path).map_err(|e| {
+            CustomResult::error(Some(format!("读取音频文件 '{}' 失败：{}", path, e)), None)
+        })?;
     } else if let Some(data) = audio_data_bytes {
         // 如果文件路径为空，但提供了 Vec<u8>，则直接使用它
         bytes_to_encode = data;

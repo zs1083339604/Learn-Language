@@ -40,7 +40,7 @@
                 <el-input v-model="form.title" />
             </el-form-item>
             <el-form-item label="选择配音">
-                <TTSSelect :direction="'row'" :showTryPlay="true"  v-model:language="form.language" v-model:voice="form.voice"/>
+                <TTSSelect :direction="'row'" v-model:language="form.language" v-model:voice="form.voice"/>
             </el-form-item>
             <el-form-item>
                 <el-button type="primary" @click="onSubmit">添加语言</el-button>

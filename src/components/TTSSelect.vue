@@ -8,17 +8,19 @@
     const props = defineProps({
         direction: {
             type: String,
-            required: false,
             default: "row",
             validator: (value) => {
                 // value 必须是 'row' 或 'column' 中的一个
                 return ['row', 'column'].includes(value);
             }
         },
-        showTryPlay: {
-            type: Boolean,
-            required: false,
-            default: true
+        showComponent: {
+            type: Array,
+            default: [ "languageSelect", "voiceSelect", "tryPlay" ],
+            validator: (value) => {
+                // value 必须是"languageSelect", "voiceSelect", "tryPlay"这三项，不能有其他的值
+                return value.every(item => ['languageSelect', 'voiceSelect', 'tryPlay'].includes(item));
+            }
         },
         // 为 v-model:language 和 v-model:voice 定义 props
         language: {
@@ -28,7 +30,7 @@
         voice: {
             type: String,
             default: '',
-        },
+        }
     })
 
     // 定义 emit 事件，用于更新父组件的 v-model 绑定的值
@@ -58,7 +60,10 @@
     const tryPlayButtonLoading = ref(false);
     const audioRef = ref(null);
     
-    voicesStore.getVoicesList().catch((error)=>{
+    voicesStore.getVoicesList().then(()=>{
+        // 成功获取到配音员，重置配音员列表
+        voices.value = voicesStore.getVoicesByLanguage(internalLanguageValue.value);
+    }).catch((error)=>{
         show_error(error, "配音员获取失败")
     })
 
@@ -87,7 +92,7 @@
 <template>
     <div class="ttsSelect-box" :class="direction">
         <div class="ttsSelect-select-box" :class="direction">
-            <div class="ttsSelect-languages-select-box">
+            <div class="ttsSelect-languages-select-box" v-if="showComponent.includes('languageSelect')">
                 <el-select v-model="internalLanguageValue" placeholder="选择语言" filterable>
                     <el-option
                         v-for="item in languages"
@@ -97,7 +102,7 @@
                     />
                 </el-select>
             </div>
-            <div class="ttsSelect-voices-select-box">
+            <div class="ttsSelect-voices-select-box" v-if="showComponent.includes('voiceSelect')">
                 <el-select v-model="internalVoiceValue" placeholder="选择配音员" filterable>
                     <el-option
                         v-for="item in voices"
@@ -108,7 +113,7 @@
             </div>
         </div>
 
-        <div class="ttsSelect-tryPlay-box" v-if="showTryPlay">
+        <div class="ttsSelect-tryPlay-box" v-if="showComponent.includes('tryPlay')">
             <el-input
                 v-model="tryPlayText"
                 placeholder="试听文本"
@@ -122,7 +127,7 @@
             </el-input>
         </div>
 
-        <audio src="" ref="audioRef" v-if="showTryPlay"></audio>
+        <audio src="" ref="audioRef" v-if="showComponent.includes('tryPlay')"></audio>
     </div>
 </template>
 

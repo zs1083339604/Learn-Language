@@ -14,31 +14,33 @@ const databseTable = [
             voice TEXT NOT NULL,
             createTime TEXT DEFAULT (datetime('now', 'localtime'))
         );
-        # COMMENT ON TABLE language IS '存储语言的表';
-        # COMMENT ON COLUMN language.id IS '主键';
-        # COMMENT ON COLUMN language.title IS '语言名称';
-        # COMMENT ON COLUMN language.language IS '语言代码';
-        # COMMENT ON COLUMN language.voice IS '语音名称';
-        # COMMENT ON COLUMN language.createTime IS '创建时间';`
+        -- COMMENT ON TABLE language IS '存储语言的表';
+        -- COMMENT ON COLUMN language.id IS '主键';
+        -- COMMENT ON COLUMN language.title IS '语言名称';
+        -- COMMENT ON COLUMN language.language IS '语言代码';
+        -- COMMENT ON COLUMN language.voice IS '语音名称';
+        -- COMMENT ON COLUMN language.createTime IS '创建时间';`
     },{
         name: 'class',
         sql: `CREATE TABLE \`class\`(
             id INTEGER PRIMARY KEY AUTOINCREMENT NOT NULL,
             languageId INTEGER NOT NULL,
+            isFinish INTEGER DEFAULT 0,
             title TEXT NOT NULL,
             content TEXT NOT NULL,
             audioFilePath TEXT NOT NULL,
             audioSrtJsonPath TEXT NOT NULL,
             createTime TEXT DEFAULT (datetime('now', 'localtime'))
         );
-        # COMMENT ON TABLE \`class\` IS '存储课文的表';
-        # COMMENT ON COLUMN \`class\`.id IS '主键';
-        # COMMENT ON COLUMN \`class\`.languageId IS '语言ID';
-        # COMMENT ON COLUMN \`class\`.title IS '课题名称';
-        # COMMENT ON COLUMN \`class\`.content IS '课题完整的正文';
-        # COMMENT ON COLUMN \`class\`.audioFilePath IS '音频文件路径';
-        # COMMENT ON COLUMN \`class\`.audioSrtJsonPath IS '音频字幕JSON文件路径';
-        # COMMENT ON COLUMN \`class\`.createTime IS '创建时间';`
+        -- COMMENT ON TABLE \`class\` IS '存储课文的表';
+        -- COMMENT ON COLUMN \`class\`.id IS '主键';
+        -- COMMENT ON COLUMN \`class\`.languageId IS '语言ID';
+        -- COMMENT ON COLUMN \`class\`.isFinish IS '是否创建完成，0未完成，1已完成';
+        -- COMMENT ON COLUMN \`class\`.title IS '课题名称';
+        -- COMMENT ON COLUMN \`class\`.content IS '课题完整的正文';
+        -- COMMENT ON COLUMN \`class\`.audioFilePath IS '音频文件路径';
+        -- COMMENT ON COLUMN \`class\`.audioSrtJsonPath IS '音频字幕JSON文件路径';
+        -- COMMENT ON COLUMN \`class\`.createTime IS '创建时间';`
     },{
         name: 'word',
         sql: `CREATE TABLE word(
@@ -55,19 +57,19 @@ const databseTable = [
             startIndex INTEGER NOT NULL,
             createTime TEXT DEFAULT (datetime('now', 'localtime'))
         );
-        # COMMENT ON TABLE word IS '存储单词的表';
-        # COMMENT ON COLUMN word.id IS '主键';
-        # COMMENT ON COLUMN word.classId IS '课题ID';
-        # CoMMENT ON COLUMN word.inlineId IS '单词的ID，用于适配同样的单词，避免重复添加';
-        # COMMENT ON COLUMN word.content IS '单词';
-        # COMMENT ON COLUMN word.oartOfSpeech IS '词性';
-        # COMMENT ON COLUMN word.pronunciation IS '单词读音';
-        # COMMENT ON COLUMN word.interpretation IS '单词意思';
-        # COMMENT ON COLUMN word.other IS '单词附加说明';
-        # COMMENT ON COLUMN word.applicable IS '单词的适用性，0只适用本课，1适用本语言全部课文';
-        # COMMENT ON COLUMN word.spell IS '单词是否可以背写，0不可以，1可以';
-        # COMMENT ON COLUMN word.startIndex IS '单词在全文中的起始下标，不含换行';
-        # COMMENT ON COLUMN word.createTime IS '创建时间';`
+        -- COMMENT ON TABLE word IS '存储单词的表';
+        -- COMMENT ON COLUMN word.id IS '主键';
+        -- COMMENT ON COLUMN word.classId IS '课题ID';
+        -- CoMMENT ON COLUMN word.inlineId IS '单词的ID，用于适配同样的单词，避免重复添加';
+        -- COMMENT ON COLUMN word.content IS '单词';
+        -- COMMENT ON COLUMN word.oartOfSpeech IS '词性';
+        -- COMMENT ON COLUMN word.pronunciation IS '单词读音';
+        -- COMMENT ON COLUMN word.interpretation IS '单词意思';
+        -- COMMENT ON COLUMN word.other IS '单词附加说明';
+        -- COMMENT ON COLUMN word.applicable IS '单词的适用性，0只适用本课，1适用本语言全部课文';
+        -- COMMENT ON COLUMN word.spell IS '单词是否可以背写，0不可以，1可以';
+        -- COMMENT ON COLUMN word.startIndex IS '单词在全文中的起始下标，不含换行';
+        -- COMMENT ON COLUMN word.createTime IS '创建时间';`
     }
 ]
 

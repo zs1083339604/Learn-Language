@@ -2,7 +2,7 @@
 
 mod utils;
 use tauri::Manager;
-use utils::api::{get_app_version, get_exe_path, start_tts, delete_path_contents};
+use utils::api::{delete_path_contents, get_app_version, start_tts};
 
 #[tauri::command]
 fn greet(name: &str) -> String {
@@ -12,6 +12,7 @@ fn greet(name: &str) -> String {
 #[cfg_attr(mobile, tauri::mobile_entry_point)]
 pub fn run() {
     tauri::Builder::default()
+        .plugin(tauri_plugin_fs::init())
         .setup(|app| {
             #[cfg(debug_assertions)]
             {
@@ -27,7 +28,6 @@ pub fn run() {
         .invoke_handler(tauri::generate_handler![
             greet,
             start_tts,
-            get_exe_path,
             get_app_version,
             delete_path_contents
         ])
