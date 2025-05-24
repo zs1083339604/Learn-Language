@@ -28,8 +28,9 @@ const databseTable = [
             isFinish INTEGER DEFAULT 0,
             title TEXT NOT NULL,
             content TEXT NOT NULL,
-            audioFilePath TEXT NOT NULL,
-            audioSrtJsonPath TEXT NOT NULL,
+            filePath TEXT NOT NULL,
+            audioFileName TEXT NOT NULL,
+            audioSrtJsonName TEXT NOT NULL,
             createTime TEXT DEFAULT (datetime('now', 'localtime'))
         );
         -- COMMENT ON TABLE \`class\` IS '存储课文的表';
@@ -38,8 +39,9 @@ const databseTable = [
         -- COMMENT ON COLUMN \`class\`.isFinish IS '是否创建完成，0未完成，1已完成';
         -- COMMENT ON COLUMN \`class\`.title IS '课题名称';
         -- COMMENT ON COLUMN \`class\`.content IS '课题完整的正文';
-        -- COMMENT ON COLUMN \`class\`.audioFilePath IS '音频文件路径';
-        -- COMMENT ON COLUMN \`class\`.audioSrtJsonPath IS '音频字幕JSON文件路径';
+        -- COMMENT ON COLUMN \`class\`.filePath IS '音频和字幕文件路径';
+        -- COMMENT ON COLUMN \`class\`.audioFileName IS '音频文件名称';
+        -- COMMENT ON COLUMN \`class\`.audioSrtJsonName IS '音频字幕JSON文件名称';
         -- COMMENT ON COLUMN \`class\`.createTime IS '创建时间';`
     },{
         name: 'word',
@@ -68,7 +70,7 @@ const databseTable = [
         -- COMMENT ON COLUMN word.other IS '单词附加说明';
         -- COMMENT ON COLUMN word.applicable IS '单词的适用性，0只适用本课，1适用本语言全部课文';
         -- COMMENT ON COLUMN word.spell IS '单词是否可以背写，0不可以，1可以';
-        -- COMMENT ON COLUMN word.startIndex IS '单词在全文中的起始下标，不含换行';
+        -- COMMENT ON COLUMN word.startIndex IS '单词在字幕文件中的数组的下标';
         -- COMMENT ON COLUMN word.createTime IS '创建时间';`
     }
 ]

@@ -9,19 +9,22 @@ import { ElMessageBox, ElMessage } from 'element-plus';
 import { connect } from './utils/sqlite';
 import { getCurrentWindow } from '@tauri-apps/api/window';
 import { resourceDir } from '@tauri-apps/api/path';
+import { show_loading } from './utils/function';
 // import { readTextFile, BaseDirectory, exists } from '@tauri-apps/plugin-fs';
 
 // (async ()=>{
 //   console.log(await exists("datas/复杂消息3.json", { baseDir: BaseDirectory.Resource}));
 //   console.log(JSON.parse(await readTextFile("datas/复杂消息3.json", { baseDir: BaseDirectory.Resource})));
 // })()
+const loadingObj = show_loading("正在初始化");
 const inited = ref(false);
 connect().then(async ()=>{
-  inited.value = true;
   return resourceDir();
 }).then((result)=>{
   // 说明：exe路径不放在optionStore中，是因为它不可更改
   localStorage.setItem("exe_path", result);
+  inited.value = true;
+  loadingObj.close();
 }).catch((error)=>{
   ElMessageBox.alert(error, '初始化失败', {
     confirmButtonText: 'OK',
@@ -58,7 +61,7 @@ const handleOpen = (key, keyPath) => {
         <template #title>设置</template>
       </el-menu-item>
     </el-menu>
-    <RouterView class="router-view"></RouterView>
+    <RouterView class="router-view" v-if="inited"></RouterView>
   </div>
 </template>
 

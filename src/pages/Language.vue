@@ -1,5 +1,5 @@
 <script setup lang="ts">
-    import { ref, onMounted, reactive, watch } from 'vue';
+    import { ref, reactive, watch } from 'vue';
     import { useLanguagesStore } from '../store/languages';
     import { useRouter, RouterView } from 'vue-router'
     import { show_error } from '../utils/function';
@@ -8,6 +8,9 @@
     
     const router = useRouter();
     const languagesStore = useLanguagesStore();
+    languagesStore.getLanguages().catch((error)=>{
+        show_error(error);
+    })
     const {languages} = storeToRefs(languagesStore);
     const treeDom = ref(null);
     const addLanguageRef = ref(null);
@@ -38,12 +41,6 @@
             voice: ""
         });
     }
-
-    onMounted(async ()=>{
-        languagesStore.getLanguages().catch((error)=>{
-            show_error(error);
-        })
-    })
 
     const loadNode = (node, resolve) => {
         if (node.level === 0) {

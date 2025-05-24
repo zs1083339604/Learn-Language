@@ -1,14 +1,13 @@
 <script setup lang="ts">
-    import { ref, reactive } from 'vue';
+    import { reactive } from 'vue';
     import { useLanguagesStore } from '../../store/languages';
     import {useRouter, useRoute} from 'vue-router'
-    import {Back} from '@element-plus/icons-vue'
     import TTSSelect from '../../components/TTSSelect.vue';
-    import { ElMessage,ElMessageBox, ElLoading  } from 'element-plus';
+    import { ElMessage,ElMessageBox } from 'element-plus';
     import { useVoicesStore } from '../../store/voices';
-    import { show_error } from '../../utils/function';
+    import { show_error, show_loading } from '../../utils/function';
     import { useClassStore } from '../../store/class';
-import mitter from '../../utils/mitt';
+    import Breadcrumb from '../../components/Breadcrumb.vue';
 
     const router = useRouter();
     const route = useRoute();
@@ -17,6 +16,17 @@ import mitter from '../../utils/mitt';
     const classStore = useClassStore();
     const languageId = route.params.id;
     const language = languagesStore.getItemById(languageId);
+
+    // 查询是否有未消完成的课程
+    classStore.getNoFinishClass(languageId).then((result)=>{
+        if(result.rows.length == 1){
+            router.replace({
+                path: "/word/add/" + result.rows[0].id
+            })
+        }
+    }).catch((error)=>{
+        show_error(error, "查询课程草稿失败");
+    })
 
     const form = reactive({
         title: "",
@@ -35,11 +45,7 @@ import mitter from '../../utils/mitt';
             return;
         }
 
-        const loading = ElLoading.service({
-            lock: true,
-            text: '正在进行配音和分词...',
-            background: 'rgba(0, 0, 0, 0.7)',
-        })
+        const loadingObj = show_loading("正在进行配音和分词...");
 
         ElMessageBox.confirm(
             '后续无法更改课文内容，请检查后操作。',
@@ -52,13 +58,15 @@ import mitter from '../../utils/mitt';
         ).then(()=>{
             return voicesStore.startTTS(form.voice,form.content, true);
         }).then((result)=>{
+            console.log(result)
             if(result.code == 200){
                 return classStore.addClass({
                     languageId: languageId,
                     title: form.title,
                     content: form.content,
-                    audioFilePath: result.data.audio_path,
-                    audioSrtJsonPath: result.data.json_path
+                    audioFileName: result.data.audio_name,
+                    audioSrtJsonName: result.data.json_name,
+                    filePath: result.data.root_name
                 });
             }else{
                 throw Error(result.msg);
@@ -66,13 +74,15 @@ import mitter from '../../utils/mitt';
         }).then((result)=>{
             // 添加成功
             // result.changes: 1, result.lastId: 
-            console.log(result);
+            router.replace({
+                path: "/word/add/" + result.lastId
+            })
         }).catch((error)=>{
             if(error != "cancel"){
                 show_error(error);
             }
         }).finally(()=>{
-            loading.close();
+            loadingObj.close();
         })
     }
 
@@ -89,8 +99,7 @@ import mitter from '../../utils/mitt';
 <template>
     <div class="class-add-box">
         <div class="class-add-box-header">
-            <el-button :icon="Back" circle @click="handleClick" />
-            <p>当前语言：{{ language == undefined ? "未知" : language.title }}</p>
+            <Breadcrumb :text="language == undefined ? '未知' : language.title"></Breadcrumb>
         </div>
 
         <div class="class-add-box-body">

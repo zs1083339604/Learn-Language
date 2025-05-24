@@ -1,4 +1,4 @@
-import { ElMessage } from "element-plus";
+import { ElMessage, ElLoading } from "element-plus";
 
 function show_error(error, title = ""){
     if(error == undefined){
@@ -25,6 +25,21 @@ function show_error(error, title = ""){
     });
 }
 
+function show_loading(text){
+    const loading = ElLoading.service({
+        lock: true,
+        text: text,
+        background: 'rgba(0, 0, 0, 0.7)',
+    })
+
+    return {
+        close: function(){
+            loading.close();
+        },
+        loading
+    }
+}
+
 export {
-    show_error
+    show_error, show_loading
 }

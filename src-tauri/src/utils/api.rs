@@ -174,8 +174,8 @@ pub async fn start_tts(data: TTSData) -> Result<CustomResult, CustomResult> {
     }
 
     let mut path_str = String::from("");
-    let mut output_path = String::from("");
-    let mut json_path = String::from("");
+    let json_name = format!("output_{}.json", send_request_id);
+    let output_name = format!("output_{}.mp3", send_request_id);
     if save_file {
         // 如果保存文件
         if root_path.is_empty() {
@@ -193,8 +193,8 @@ pub async fn start_tts(data: TTSData) -> Result<CustomResult, CustomResult> {
 
         // 保存音频数据
         let path_buf =
-            PathBuf::from(path_str.clone()).join(format!("output_{}.mp3", send_request_id));
-        output_path = path_buf.display().to_string();
+            PathBuf::from(path_str.clone()).join(output_name.clone());
+        let output_path = path_buf.display().to_string();
         let mut file = File::create(&output_path)
             .map_err(|e| CustomResult::error(Some(format!("创建音频文件失败：{}", e)), None))?;
         file.write_all(&audio_data)
@@ -202,8 +202,8 @@ pub async fn start_tts(data: TTSData) -> Result<CustomResult, CustomResult> {
 
         // 写入JSON数据
         let path_buf =
-            PathBuf::from(path_str.clone()).join(format!("output_{}.json", send_request_id));
-        json_path = path_buf.display().to_string();
+            PathBuf::from(path_str.clone()).join(json_name.clone());
+        let json_path = path_buf.display().to_string();
         let mut json_file = File::create(&json_path)
             .map_err(|e| CustomResult::error(Some(format!("创建JSON文件失败：{}", e)), None))?;
         let json_str = serde_json::to_string(&messages)
@@ -220,9 +220,9 @@ pub async fn start_tts(data: TTSData) -> Result<CustomResult, CustomResult> {
         None,
         Some(json!({
             "audio": base64_audio,
-            "root_path": path_str,
-            "audio_path": output_path,
-            "json_path": json_path,
+            "root_name": path_str,
+            "audio_name": output_name,
+            "json_name": json_name,
             "text": text
         })),
     ))

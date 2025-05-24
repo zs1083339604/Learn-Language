@@ -23,15 +23,15 @@
     "fs:default",
     {
       "identifier": "fs:allow-exists",
-      "allow": [{ "path": "$RESOURCE/datas/*" }]
+      "allow": [{ "path": "$RESOURCE/datas/**" }]
     },
     {
       "identifier": "fs:allow-read-file",
-      "allow": [{ "path": "$RESOURCE/datas/*" }]
+      "allow": [{ "path": "$RESOURCE/datas/**" }]
     },
     {
       "identifier": "fs:allow-read-text-file",
-      "allow": [{ "path": "$RESOURCE/datas/*" }]
+      "allow": [{ "path": "$RESOURCE/datas/**" }]
     }
   ]
 }
