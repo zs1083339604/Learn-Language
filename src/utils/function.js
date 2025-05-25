@@ -40,6 +40,10 @@ function show_loading(text){
     }
 }
 
+function deepCopy(obj){
+    return JSON.parse(JSON.stringify(obj));
+}
+
 export {
-    show_error, show_loading
+    show_error, show_loading, deepCopy
 }

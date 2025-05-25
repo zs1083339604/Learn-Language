@@ -48,7 +48,7 @@ const databseTable = [
         sql: `CREATE TABLE word(
             id INTEGER PRIMARY KEY AUTOINCREMENT NOT NULL,
             classId INTEGER NOT NULL,
-            inlineId INTEGER DEFAULT 0,
+            inlineId INTEGER,
             content TEXT,
             oartOfSpeech TEXT,
             pronunciation TEXT,
@@ -59,6 +59,8 @@ const databseTable = [
             startIndex INTEGER NOT NULL,
             createTime TEXT DEFAULT (datetime('now', 'localtime'))
         );
+        -- 设置查询索引
+        CREATE INDEX idx_word_content_applicable ON word (content, applicable);
         -- COMMENT ON TABLE word IS '存储单词的表';
         -- COMMENT ON COLUMN word.id IS '主键';
         -- COMMENT ON COLUMN word.classId IS '课题ID';

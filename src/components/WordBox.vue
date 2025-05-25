@@ -1,27 +1,29 @@
 <script setup lang="ts">
-    import { computed } from 'vue';
-    import {Top, Bottom, VideoPlay} from '@element-plus/icons-vue'
+    import { computed,watch, onBeforeUnmount } from 'vue';
+    import {Top, Bottom, VideoPlay, Scissor} from '@element-plus/icons-vue'
 
     const props = defineProps({
         modelValue: {
             type: Object,
             required: true,
-            default: () => ({
-                id: 0,
-                inlineId: 0,
-                word: "",
-                oartOfSpeech: "名词",
-                pronunciation: "",
-                interpretation: "",
-                other: "",
-                applicable: "all",
-                spell: true,
-                startIndex: 0
-            })
+            // default: () => ({
+            //     id: 0,
+            //     inlineId: 0,
+            //     word: "",
+            //     oartOfSpeech: "名词",
+            //     pronunciation: "",
+            //     interpretation: "",
+            //     other: "",
+            //     applicable: 1,
+            //     spell: true,
+            //     startIndex: 0,
+            //     isSeparation: false,
+            //     highlight: false
+            // })
         }
     });
 
-    const emit = defineEmits(['update:modelValue', 'mergeWord', 'playAudio']);
+    const emit = defineEmits(['update:modelValue', 'mergeWord', 'playAudio', 'separation']);
 
     // 使用 computed 属性实现双向绑定
     const internalData = computed({
@@ -31,22 +33,52 @@
             return props.modelValue; // 直接使用 prop，因为 ElInput 内部会处理更新
         },
         set(newValue) {
-            // 当内部表单（例如 ElInput）通过 v-model 尝试修改 internalData 时，
-            // 这个 set 方法会被调用，newValue 是表单组件传入的新值。
-            // 我们将这个新值通过 emit 事件传回父组件。
+            // 当内部表单通过 v-model 尝试修改 internalData 时
+            // 这个 set 方法会被调用，newValue 是表单组件传入的新值
+            // 我们将这个新值通过 emit 事件传回父组件
             emit('update:modelValue', newValue);
         }
     });
-    const mergeWord = (type)=>{
-        emit('mergeWord', type);
-    }
-    
+
+    // 用于存储定时器的引用，以便在需要时清除
+    let highlightTimer = null;
+
+    // 监听 highlight 属性的变化
+    watch(
+        () => internalData.value.highlight,
+        (newVal) => {
+            if (newVal === true) {
+                // 当 highlight 变为 true 时，启动定时器
+                if (highlightTimer) {
+                    clearTimeout(highlightTimer);
+                }
+                highlightTimer = setTimeout(() => {
+                    // 通过 emit 传递回父组件
+                    emit('update:modelValue', { ...internalData.value, highlight: false });
+                    highlightTimer = null;
+                }, 2000);
+            }else{
+                if (highlightTimer) {
+                    clearTimeout(highlightTimer);
+                    highlightTimer = null;
+                }
+            }
+        },
+        { immediate: true }
+    );
+
+    onBeforeUnmount(()=>{
+        if (highlightTimer) {
+            clearTimeout(highlightTimer);
+            highlightTimer = null;
+        }
+    })
 </script>
 
 <template>
-    <div class="wordBox-box">
+    <div class="wordBox-box" :class="{ 'highlighted': internalData.highlight }">
         <div class="wordBox-item-flex">
-            <div class="wordBox-item-group-box">
+            <div class="wordBox-item-group-box" :title="internalData.word">
                 <el-input v-model="internalData.word" placeholder="单词、短语、句子" :disabled="true"/>
             </div>
             <div class="wordBox-item-group-box">
@@ -89,8 +121,8 @@
             <div class="wordBox-item-group-box">
                 <p>适用性：</p>
                 <el-radio-group v-model="internalData.applicable">
-                    <el-radio value="all" size="large" border>通用</el-radio>
-                    <el-radio value="this" size="large" border style="margin-left: -15px;">仅本课</el-radio>
+                    <el-radio :value="1" size="large" border>通用</el-radio>
+                    <el-radio :value="0" size="large" border style="margin-left: -15px;">仅本课</el-radio>
                 </el-radio-group>
             </div>
             <div class="wordBox-item-group-box">
@@ -104,9 +136,10 @@
             </div>
             <div class="wordBox-item-group-box" style="margin-left: -15px;">
                 <p>工具：</p>
+                <el-button :icon="Scissor" circle title="分离单词" @click="emit('separation')" v-if="internalData.isSeparation"/>
                 <el-button :icon="Top" circle title="向上合并" @click="emit('mergeWord', 'top')"/>
                 <el-button :icon="Bottom" circle title="向下合并" @click="emit('mergeWord', 'bottom')"/>
-                <el-button :icon="VideoPlay" circle title="向下合并" @click="emit('playAudio')"/>
+                <el-button :icon="VideoPlay" circle title="播放单词" @click="emit('playAudio')"/>
             </div>
         </div>
     </div>
@@ -118,6 +151,11 @@
         border-radius: 10px;
         padding: 15px 15px 0;
         margin-bottom: 15px;
+        transition: border-color 0.3s ease;
+    }
+
+    .wordBox-box.highlighted{
+        border-color: rgb(64, 158, 255);
     }
 
     .wordBox-item-flex{

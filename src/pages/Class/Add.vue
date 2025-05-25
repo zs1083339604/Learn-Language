@@ -6,19 +6,19 @@
     import { ElMessage,ElMessageBox } from 'element-plus';
     import { useVoicesStore } from '../../store/voices';
     import { show_error, show_loading } from '../../utils/function';
-    import { useClassStore } from '../../store/class';
     import Breadcrumb from '../../components/Breadcrumb.vue';
+    import useClass from '../../hooks/useClass';
 
     const router = useRouter();
     const route = useRoute();
     const languagesStore = useLanguagesStore();
     const voicesStore = useVoicesStore();
-    const classStore = useClassStore();
+    const { addClass, getNoFinishClass } = useClass();
     const languageId = route.params.id;
     const language = languagesStore.getItemById(languageId);
 
     // 查询是否有未消完成的课程
-    classStore.getNoFinishClass(languageId).then((result)=>{
+    getNoFinishClass(languageId).then((result)=>{
         if(result.rows.length == 1){
             router.replace({
                 path: "/word/add/" + result.rows[0].id
@@ -60,7 +60,7 @@
         }).then((result)=>{
             console.log(result)
             if(result.code == 200){
-                return classStore.addClass({
+                return addClass({
                     languageId: languageId,
                     title: form.title,
                     content: form.content,
