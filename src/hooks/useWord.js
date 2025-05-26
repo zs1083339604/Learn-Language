@@ -1,4 +1,4 @@
-import { insert } from "../utils/sqlite";
+import { insert, select } from "../utils/sqlite";
 
 export default ()=>{
 
@@ -22,8 +22,13 @@ export default ()=>{
         })
     }
 
+    const getWordByWord = (word) => {
+        return select("word", ["id", "inlineId", "oartOfSpeech", "pronunciation", "interpretation", "other", "spell"], "content = ? AND applicable = ? LIMIT 1", [word, 1]);
+    }
+
     return {
         addWord,
-        addWords
+        addWords,
+        getWordByWord
     }
 }

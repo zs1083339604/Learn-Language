@@ -1,20 +1,27 @@
 import {createRouter, createWebHistory} from 'vue-router'
 
 import Language from '../pages/Language.vue'
-import LanguageAdd from '../pages/LanguageAdd.vue'
 import SetPage from '../pages/SetPage.vue'
 import Class from '../pages/Class.vue'
 import AddClass from '../pages/class/Add.vue'
 import Word from '../pages/Word.vue'
 import AddWord from '../pages/Word/Add.vue'
+import ListClass from '../pages/Class/List.vue'
+import ShowClass from '../pages/Class/Show.vue'
 
 const routes = [
-    { path: '/', redirect: '/language'},
+    { path: '/', redirect: '/language/add'},
     { path: '/set', component: SetPage },
     { 
         name: "language",
         path: '/language', 
-        component: Language
+        children: [
+            {
+                name: 'addLanguage',
+                path: 'add',
+                component: Language
+            }
+        ]
     },
     { 
         name: "class",
@@ -25,6 +32,14 @@ const routes = [
                 name: 'addClass',
                 path: 'add/:id',
                 component: AddClass
+            },{
+                name: 'listClass',
+                path: 'list/:id',
+                component: ListClass
+            },{
+                name: 'showClass',
+                path: 'show/:id',
+                component: ShowClass
             }
         ]
     },

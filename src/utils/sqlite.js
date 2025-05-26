@@ -12,6 +12,7 @@ const databseTable = [
             title TEXT NOT NULL,
             languageText TEXT NOT NULL,
             voice TEXT NOT NULL,
+            lastViewId INTEGER DEFAULT 0,
             createTime TEXT DEFAULT (datetime('now', 'localtime'))
         );
         -- COMMENT ON TABLE language IS '存储语言的表';
@@ -19,6 +20,7 @@ const databseTable = [
         -- COMMENT ON COLUMN language.title IS '语言名称';
         -- COMMENT ON COLUMN language.language IS '语言代码';
         -- COMMENT ON COLUMN language.voice IS '语音名称';
+        -- COMMENT ON COLUMN language.lastViewId IS '最后查看的课文ID';
         -- COMMENT ON COLUMN language.createTime IS '创建时间';`
     },{
         name: 'class',

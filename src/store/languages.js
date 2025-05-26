@@ -5,7 +5,7 @@ export const useLanguagesStore = defineStore("languages", {
     actions: {
         getLanguages(){
             return new Promise((resolve, reject) => {
-                select("language", ["title", "id", "languageText", "voice"]).then((datas)=>{
+                select("language", ["title", "id", "languageText", "voice", "lastViewId"]).then((datas)=>{
                     this.languages = datas.rows;
                     resolve(datas.rows);
                 }).catch((err)=>{

@@ -44,6 +44,16 @@ function deepCopy(obj){
     return JSON.parse(JSON.stringify(obj));
 }
 
+function stringToBoolean(str) {
+    if (str === 'true') {
+        return true;
+    } else if (str === 'false') {
+        return false;
+    } else {
+        return false;
+    }
+}
+
 export {
-    show_error, show_loading, deepCopy
+    show_error, show_loading, deepCopy, stringToBoolean
 }

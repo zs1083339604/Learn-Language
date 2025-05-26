@@ -136,7 +136,7 @@
             </div>
             <div class="wordBox-item-group-box" style="margin-left: -15px;">
                 <p>工具：</p>
-                <el-button :icon="Scissor" circle title="分离单词" @click="emit('separation')" v-if="internalData.isSeparation"/>
+                <el-button :icon="Scissor" circle title="分离单词" @click="emit('separation')" v-show="internalData.isSeparation"/>
                 <el-button :icon="Top" circle title="向上合并" @click="emit('mergeWord', 'top')"/>
                 <el-button :icon="Bottom" circle title="向下合并" @click="emit('mergeWord', 'bottom')"/>
                 <el-button :icon="VideoPlay" circle title="播放单词" @click="emit('playAudio')"/>

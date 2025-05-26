@@ -2,7 +2,7 @@
     import { ref, onBeforeUnmount, onMounted } from 'vue';
     import Breadcrumb from '../../components/Breadcrumb.vue';
     import {useRouter, useRoute} from 'vue-router'
-    import { show_error, show_loading, deepCopy } from '../../utils/function';
+    import { show_error, show_loading, deepCopy, stringToBoolean } from '../../utils/function';
     import WordBox from '../../components/WordBox.vue';
     import { readFile, readTextFile, exists } from '@tauri-apps/plugin-fs';
     import { ElMessage, ElMessageBox } from 'element-plus';
@@ -12,8 +12,8 @@
     const router = useRouter();
     const route = useRoute();
     const loadingObj = show_loading("正在获取课程信息");
-    const { getClass, setFinished } = useClass();
-    const { addWords } = useWord();
+    const { getClassFullInfoByID, setFinished } = useClass();
+    const { addWords, getWordByWord } = useWord();
     const classId = route.params.id;
     const wordBoxBaseObject = {
         id: 0,
@@ -46,7 +46,7 @@
 
     const items = ref([]);
 
-    getClass(classId).then((result)=>{
+    getClassFullInfoByID(classId).then((result)=>{
         if(result.rows.length == 0 || result.rows[0].isFinish == 1){
             throw Error("未获取到课程信息");
         }
@@ -72,25 +72,41 @@
     }).then((result)=>{
         audioData = result;
         return readTextFile(audioSrtJsonPath);
-    }).then((result)=>{
-        jsonData = JSON.parse(result);
+    }).then(async (result)=>{
+        try {
+            jsonData = JSON.parse(result);
         
-        const audioBlob = new Blob([audioData], { type: 'audio/mpeg' });
-        // 使用 URL.createObjectURL() 创建临时 URL
-        const url = URL.createObjectURL(audioBlob);
-        
-        audioSrc.value = url;
-        if (audioRef.value) {
-            audioRef.value.src = audioSrc.value;
-        }
+            const audioBlob = new Blob([audioData], { type: 'audio/mpeg' });
+            // 使用 URL.createObjectURL() 创建临时 URL
+            const url = URL.createObjectURL(audioBlob);
+            
+            audioSrc.value = url;
+            if (audioRef.value) {
+                audioRef.value.src = audioSrc.value;
+            }
 
-        for(let i = 0; i < jsonData.length; i++){
-            // 插入Word数据
-            const item = jsonData[i].Metadata[0].Data;
-            const tempObj = deepCopy(wordBoxBaseObject);
-            tempObj.word = item.text.Text;
-            tempObj.startIndex = i;
-            items.value.push(tempObj);
+            for(let i = 0; i < jsonData.length; i++){
+                // 插入Word数据
+                const item = jsonData[i].Metadata[0].Data;
+                const result = await getWordByWord(item.text.Text);
+                const tempObj = deepCopy(wordBoxBaseObject);
+                tempObj.word = item.text.Text;
+                tempObj.startIndex = i;
+
+                if(result.rows.length != 0){
+                    const item = result.rows[0];
+                    tempObj.inlineId = item.inlineId == 0 ? item.id : item.inlineId;
+                    tempObj.interpretation = item.interpretation;
+                    tempObj.oartOfSpeech = item.oartOfSpeech;
+                    tempObj.pronunciation = item.pronunciation;
+                    tempObj.other = item.other;
+                    tempObj.spell = stringToBoolean(item.spell);
+                }
+
+                items.value.push(tempObj);
+            }
+        } catch (error) {
+            throw Error(error)
         }
     }).catch((error)=>{
         show_error(error, "获取课程信息失败");
@@ -291,7 +307,7 @@
             return setFinished(classId);
         }).then(()=>{
             // 成功
-            router.push("/");
+            router.back();
             ElMessage.success("添加成功");
         }).catch((error)=>{
             show_error(error, "提交失败");
