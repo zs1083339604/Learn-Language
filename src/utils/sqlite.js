@@ -30,6 +30,7 @@ const databseTable = [
             isFinish INTEGER DEFAULT 0,
             title TEXT NOT NULL,
             content TEXT NOT NULL,
+            translation TEXT,
             filePath TEXT NOT NULL,
             audioFileName TEXT NOT NULL,
             audioSrtJsonName TEXT NOT NULL,
@@ -41,6 +42,7 @@ const databseTable = [
         -- COMMENT ON COLUMN \`class\`.isFinish IS '是否创建完成，0未完成，1已完成';
         -- COMMENT ON COLUMN \`class\`.title IS '课题名称';
         -- COMMENT ON COLUMN \`class\`.content IS '课题完整的正文';
+        -- COMMENT ON COLUMN \`class\`.translation IS '课题的翻译';
         -- COMMENT ON COLUMN \`class\`.filePath IS '音频和字幕文件路径';
         -- COMMENT ON COLUMN \`class\`.audioFileName IS '音频文件名称';
         -- COMMENT ON COLUMN \`class\`.audioSrtJsonName IS '音频字幕JSON文件名称';
@@ -50,6 +52,8 @@ const databseTable = [
         sql: `CREATE TABLE word(
             id INTEGER PRIMARY KEY AUTOINCREMENT NOT NULL,
             classId INTEGER NOT NULL,
+            -- 冗余languageId，此表后续数据量会达到几十万，并且查询 languageId 下的通用单词是一个高频操作，在这种读密集型的应用场景下，查询性能是最应该优先考虑的因素
+            languageId INTEGER NOT NULL,
             inlineId INTEGER,
             content TEXT,
             oartOfSpeech TEXT,
@@ -62,10 +66,12 @@ const databseTable = [
             createTime TEXT DEFAULT (datetime('now', 'localtime'))
         );
         -- 设置查询索引
-        CREATE INDEX idx_word_content_applicable ON word (content, applicable);
+        CREATE INDEX idx_word_languageId_applicable ON word (languageId, applicable);
+        CREATE INDEX idx_word_classId ON word (classId);
         -- COMMENT ON TABLE word IS '存储单词的表';
         -- COMMENT ON COLUMN word.id IS '主键';
         -- COMMENT ON COLUMN word.classId IS '课题ID';
+        -- COMMENT ON COLUMN word.languageId IS '语言ID';
         -- CoMMENT ON COLUMN word.inlineId IS '单词的ID，用于适配同样的单词，避免重复添加';
         -- COMMENT ON COLUMN word.content IS '单词';
         -- COMMENT ON COLUMN word.oartOfSpeech IS '词性';

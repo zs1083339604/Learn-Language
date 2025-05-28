@@ -1,19 +1,21 @@
 <script setup lang="ts">
-    import { ref, onBeforeUnmount, onMounted } from 'vue';
+    import { ref } from 'vue';
     import Breadcrumb from '../../components/Breadcrumb.vue';
     import {useRouter, useRoute} from 'vue-router'
-    import { show_error, show_loading, deepCopy, stringToBoolean } from '../../utils/function';
+    import { show_error, show_loading, deepCopy, stringToBoolean, readClassData } from '../../utils/function';
     import WordBox from '../../components/WordBox.vue';
-    import { readFile, readTextFile, exists } from '@tauri-apps/plugin-fs';
     import { ElMessage, ElMessageBox } from 'element-plus';
     import useClass from '../../hooks/useClass';
     import useWord from '../../hooks/useWord';
+    import { useCommonWordsStore } from '../../store/commonWords';
+    import { useAudioPlayer } from '../../hooks/useAudioPlayer';
 
     const router = useRouter();
     const route = useRoute();
+    const commonWordsStore = useCommonWordsStore();
     const loadingObj = show_loading("正在获取课程信息");
     const { getClassFullInfoByID, setFinished } = useClass();
-    const { addWords, getWordByWord } = useWord();
+    const { addWords } = useWord();
     const classId = route.params.id;
     const wordBoxBaseObject = {
         id: 0,
@@ -30,19 +32,9 @@
         highlight: false
     };
 
-    let filePath = "", 
-    audioFilePath = "", 
-    audioSrtJsonPath = "", 
-    classInfo = null,
-    audioData = [],
+    let classInfo = null,
+    audioData = ref([]),
     jsonData = [];
-
-    const audioRef = ref(null);
-    // 存储要播放的音频 URL
-    const audioSrc = ref('');
-    // 存储当前正在播放的片段信息，用于停止
-    let currentPlayingSegment = null;
-    let animationFrameId = null;
 
     const items = ref([]);
 
@@ -52,61 +44,30 @@
         }
 
         classInfo = result.rows[0];
-        filePath = classInfo.filePath;
-        audioFilePath = filePath + "/" + result.rows[0].audioFileName;
-        audioSrtJsonPath = filePath + "/" + result.rows[0].audioSrtJsonName;
-        return exists(audioFilePath);
 
-    }).then((exis)=>{
-        if(!exis){
-            throw Error("未获取到音频文件");
-        }
-
-        return exists(audioSrtJsonPath);
-    }).then((exis)=>{
-        if(!exis){
-            throw Error("未获取到字幕文件");
-        }
-
-        return readFile(audioFilePath);
+        return readClassData(classInfo);
     }).then((result)=>{
-        audioData = result;
-        return readTextFile(audioSrtJsonPath);
-    }).then(async (result)=>{
-        try {
-            jsonData = JSON.parse(result);
-        
-            const audioBlob = new Blob([audioData], { type: 'audio/mpeg' });
-            // 使用 URL.createObjectURL() 创建临时 URL
-            const url = URL.createObjectURL(audioBlob);
-            
-            audioSrc.value = url;
-            if (audioRef.value) {
-                audioRef.value.src = audioSrc.value;
+        jsonData = result.jsonData;
+        audioData.value = result.audioData;
+    
+        for(let i = 0; i < jsonData.length; i++){
+            // 插入Word数据
+            const item = jsonData[i].Metadata[0].Data;
+            const wordItem = commonWordsStore.getWordInfoByWord(item.text.Text);
+            const tempObj = deepCopy(wordBoxBaseObject);
+            tempObj.word = item.text.Text;
+            tempObj.startIndex = i;
+
+            if(wordItem != null){
+                tempObj.inlineId = wordItem.inlineId == 0 ? wordItem.id : wordItem.inlineId;
+                tempObj.interpretation = wordItem.interpretation;
+                tempObj.oartOfSpeech = wordItem.oartOfSpeech;
+                tempObj.pronunciation = wordItem.pronunciation;
+                tempObj.other = wordItem.other;
+                tempObj.spell = stringToBoolean(wordItem.spell);
             }
 
-            for(let i = 0; i < jsonData.length; i++){
-                // 插入Word数据
-                const item = jsonData[i].Metadata[0].Data;
-                const result = await getWordByWord(item.text.Text);
-                const tempObj = deepCopy(wordBoxBaseObject);
-                tempObj.word = item.text.Text;
-                tempObj.startIndex = i;
-
-                if(result.rows.length != 0){
-                    const item = result.rows[0];
-                    tempObj.inlineId = item.inlineId == 0 ? item.id : item.inlineId;
-                    tempObj.interpretation = item.interpretation;
-                    tempObj.oartOfSpeech = item.oartOfSpeech;
-                    tempObj.pronunciation = item.pronunciation;
-                    tempObj.other = item.other;
-                    tempObj.spell = stringToBoolean(item.spell);
-                }
-
-                items.value.push(tempObj);
-            }
-        } catch (error) {
-            throw Error(error)
+            items.value.push(tempObj);
         }
     }).catch((error)=>{
         show_error(error, "获取课程信息失败");
@@ -114,84 +75,12 @@
         loadingObj.close();
     })
 
-    const updateTime = () => {
-        // 如果音频暂停或结束，则停止RAF循环
-        // 注意：也可以选择在暂停时让RAF继续运行，以便在resume时立即更新
-        // 但为了节约资源，通常会在暂停时停止
-        // 在这个场景下，onpause事件会主动停止RAF，所以这里可以简化
-        // 保持这个检查也是安全的，以防万一
-        if (!audioRef.value || audioRef.value.paused || audioRef.value.ended) {
-            // 如果已经停止，就不再请求下一帧了
-            // 确保 animationFrameId 被 onpause/onended 清除
-            return;
-        }
-        
-        if (currentPlayingSegment && audioRef.value) {
-            // 判断是否达到片段结束时间
-            if (audioRef.value.currentTime >= currentPlayingSegment.endTime) {
-                audioRef.value.pause();
-                currentPlayingSegment = null;
-            }
-        }
-
-        // 只有在需要继续更新时才请求下一帧
-        animationFrameId = requestAnimationFrame(updateTime);
-    };
-
-    onMounted(()=>{
-        if (audioRef.value) {
-            // 监听播放事件，启动 requestAnimationFrame 循环
-            audioRef.value.onplay = () => {
-                // 只有在没有RAF循环在运行时才启动它
-                if (!animationFrameId) {
-                    animationFrameId = requestAnimationFrame(updateTime);
-                    console.log('RAF loop started on play');
-                }
-            };
-            // 监听暂停事件，停止 requestAnimationFrame 循环
-            audioRef.value.onpause = () => {
-                if (animationFrameId) {
-                    cancelAnimationFrame(animationFrameId);
-                    animationFrameId = null;
-                    console.log('RAF loop stopped on pause');
-                }
-            };
-            // 监听结束事件，停止 requestAnimationFrame 循环
-            audioRef.value.onended = () => {
-                if (animationFrameId) {
-                    cancelAnimationFrame(animationFrameId);
-                    animationFrameId = null;
-                    console.log('RAF loop stopped on ended');
-                }
-            };
-
-            // 监听 seek 事件，当用户拖动进度条时
-            audioRef.value.onseeking = () => {
-                // 在这里强制停止RAF，然后让onplay再次启动，以确保一致性
-                if (animationFrameId) {
-                    cancelAnimationFrame(animationFrameId);
-                    animationFrameId = null;
-                }
-            };
-        }
-    })
-
-    // 在组件卸载前释放 URL 资源，避免内存泄漏
-    onBeforeUnmount(() => {
-        if (audioSrc.value) {
-            URL.revokeObjectURL(audioSrc.value);
-        }
-
-        if (animationFrameId) {
-            cancelAnimationFrame(animationFrameId);
-        }
-
-        if(audioRef.value){
-            audioRef.value.onplay = null;
-            audioRef.value.onpause = null;
-            audioRef.value.onended = null;
-            audioRef.value.onseeking = null;
-        }
+    const {
+        audioRef,
+        audioSrc,
+        playSegmentDirectly
+    } = useAudioPlayer({
+        audioDataRef: audioData
     });
 
     const playAudio = (index) => {
@@ -210,17 +99,9 @@
         const lastStartTime = jsonData[lastIndex].Metadata[0].Data.Offset;
         const lastDuration = jsonData[lastIndex].Metadata[0].Data.Duration;
 
-        const endTime = startTime + ((lastStartTime - startTimeNoSub  + lastDuration) / 10000000);
+        const duration = (lastStartTime - startTimeNoSub  + lastDuration) / 10000000;
 
-        // 设置当前播放时间
-        audioRef.value.currentTime = startTime;
-        // 存储当前播放片段的结束时间，供 timeupdate 监听
-        currentPlayingSegment = {
-            startTime: startTime,
-            endTime: endTime
-        };
-        // 播放
-        audioRef.value.play();
+        playSegmentDirectly(startTime, duration);
     }
 
     const mergeWord = (event, index) => {
@@ -303,7 +184,7 @@
     }
 
     function submit(){
-        addWords(classId, deepCopy(items.value)).then(()=>{
+        addWords(classInfo.languageId, classId, deepCopy(items.value)).then(()=>{
             return setFinished(classId);
         }).then(()=>{
             // 成功

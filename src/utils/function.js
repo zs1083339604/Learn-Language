@@ -1,4 +1,5 @@
 import { ElMessage, ElLoading } from "element-plus";
+import { readFile, readTextFile, exists } from '@tauri-apps/plugin-fs';
 
 function show_error(error, title = ""){
     if(error == undefined){
@@ -54,6 +55,45 @@ function stringToBoolean(str) {
     }
 }
 
+function readClassData(classInfo){
+    let filePath = classInfo.filePath,
+    audioFilePath = filePath + "/" + classInfo.audioFileName,
+    audioSrtJsonPath = filePath + "/" + classInfo.audioSrtJsonName,
+    audioData = [],
+    jsonData = [];
+
+    return new Promise((resolve, reject) => {
+        
+        exists(audioFilePath).then((exis)=>{
+            if(!exis){
+                throw Error("未获取到音频文件");
+            }
+    
+            return exists(audioSrtJsonPath);
+        }).then((exis)=>{
+            if(!exis){
+                throw Error("未获取到字幕文件");
+            }
+    
+            return readFile(audioFilePath);
+        }).then((result)=>{
+            audioData = result;
+            return readTextFile(audioSrtJsonPath);
+        }).then((result)=>{
+            jsonData = JSON.parse(result);
+            resolve({
+                filePath,
+                audioFilePath,
+                audioSrtJsonPath,
+                audioData,
+                jsonData
+            });
+        }).catch((error)=>{
+            reject(error);
+        })
+    })
+}
+
 export {
-    show_error, show_loading, deepCopy, stringToBoolean
+    show_error, show_loading, deepCopy, stringToBoolean, readClassData
 }

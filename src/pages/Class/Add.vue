@@ -1,5 +1,5 @@
 <script setup lang="ts">
-    import { reactive } from 'vue';
+    import { reactive, ref } from 'vue';
     import { useLanguagesStore } from '../../store/languages';
     import {useRouter, useRoute} from 'vue-router'
     import TTSSelect from '../../components/TTSSelect.vue';
@@ -16,6 +16,7 @@
     const { addClass, getNoFinishClass } = useClass();
     const languageId = route.params.id;
     const language = languagesStore.getItemById(languageId);
+    const step_1_finish = ref(false);
 
     // 查询是否有未消完成的课程
     getNoFinishClass(languageId).then((result)=>{
@@ -31,13 +32,10 @@
     const form = reactive({
         title: "",
         content: "",
+        translation: "",
         language: "",
         voice: ""
     });
-
-    const handleClick = ()=>{
-        router.back();
-    }
 
     const nextStep = ()=>{
         if(form.title == "" || form.content == "" || form.voice == ""){
@@ -45,25 +43,32 @@
             return;
         }
 
+        if(step_1_finish.value == false){
+            ElMessageBox.confirm(
+                '后续无法更改课文内容，请检查后操作。',
+                '警告',
+                {
+                    confirmButtonText: '确定',
+                    cancelButtonText: '取消',
+                    type: 'warning',
+                }
+            ).then(()=>{
+                step_1_finish.value = true;
+            }).catch(()=>{});
+        
+            return;
+        }
+
         const loadingObj = show_loading("正在进行配音和分词...");
 
-        ElMessageBox.confirm(
-            '后续无法更改课文内容，请检查后操作。',
-            '警告',
-            {
-                confirmButtonText: '确定',
-                cancelButtonText: '取消',
-                type: 'warning',
-            }
-        ).then(()=>{
-            return voicesStore.startTTS(form.voice,form.content, true);
-        }).then((result)=>{
+        voicesStore.startTTS(form.voice,form.content, true).then((result)=>{
             console.log(result)
             if(result.code == 200){
                 return addClass({
                     languageId: languageId,
                     title: form.title,
                     content: form.content,
+                    translation: form.translation,
                     audioFileName: result.data.audio_name,
                     audioSrtJsonName: result.data.json_name,
                     filePath: result.data.root_name
@@ -78,9 +83,7 @@
                 path: "/word/add/" + result.lastId
             })
         }).catch((error)=>{
-            if(error != "cancel"){
-                show_error(error);
-            }
+            show_error(error);
         }).finally(()=>{
             loadingObj.close();
         })
@@ -88,7 +91,7 @@
 
     if(language == undefined){
         // 未找到课文ID
-        router.push({ path: "/language"})
+        router.back();
     }else{
         form.language = language.languageText;
         form.voice = language.voice;
@@ -109,14 +112,20 @@
                 status-icon
                 class="step-1-form"
             >
-                <el-form-item label="配音员">
-                    <TTSSelect :direction="'column'" :showComponent="['voiceSelect']" v-model:language="form.language" v-model:voice="form.voice"/>
-                </el-form-item>
-                <el-form-item label="课文标题" prop="title">
-                    <el-input v-model="form.title" />
-                </el-form-item>
-                <el-form-item label="课文内容" prop="content" class="full-height-textarea">
-                    <el-input v-model="form.content" type="textarea" />
+                <template v-if="!step_1_finish">
+                    <el-form-item label="配音员">
+                        <TTSSelect :direction="'column'" :showComponent="['voiceSelect']" v-model:language="form.language" v-model:voice="form.voice"/>
+                    </el-form-item>
+                    <el-form-item label="课文标题" prop="title">
+                        <el-input v-model="form.title" />
+                    </el-form-item>
+                    <el-form-item label="课文内容" prop="content" class="full-height-textarea">
+                        <el-input v-model="form.content" type="textarea" />
+                    </el-form-item>
+                </template>
+                
+                <el-form-item label="课文译文" prop="translation" class="full-height-textarea" v-if="step_1_finish" >
+                    <el-input v-model="form.translation" type="textarea" placeholder="课文翻译，可不填，后续可更改"/>
                 </el-form-item>
                 <el-form-item>
                     <el-button type="primary" @click="nextStep">下一步</el-button>

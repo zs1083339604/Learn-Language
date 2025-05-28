@@ -3,10 +3,13 @@
     import useClass from '../../hooks/useClass';
     import { show_loading, show_error } from '../../utils/function';
     import {useRouter, useRoute} from 'vue-router'
+    import { useCommonWordsStore } from '../../store/commonWords';
+import { ElMessage } from 'element-plus';
     
     const { getALLClassBaseInfoByLanguageId } = useClass();
     const router = useRouter();
     const route = useRoute();
+    const commonWordsStore = useCommonWordsStore();
     const languageId = ref(route.params.id);
     const list = ref([]);
 
@@ -21,6 +24,8 @@
                 result.rows.forEach(element => {
                     list.value.push(element);
                 });
+
+                return commonWordsStore.getCommonWords(languageId.value);
             }).catch((error)=>{
                 show_error(error, "获取课程列表失败");
             }).finally(()=>{
@@ -30,7 +35,11 @@
         { immediate: true } // 立即执行一次，确保初始加载时也能触发逻辑
     );
 
-    const openClass = (id)=>{
+    const openClass = (id, isFinish)=>{
+        if(isFinish == 0){
+            ElMessage.warning("该课文未添加完成，请点击添加课文按钮。");
+            return;
+        }
         router.push('/class/show/' + id);
     }
 </script>
@@ -54,7 +63,7 @@
                 </template>
                 <p class="car-body">{{ item.content }}</p>
                 <template #footer>
-                    <el-button @click="openClass(item.id)">阅读课文</el-button>
+                    <el-button @click="openClass(item.id, item.isFinish)">阅读课文</el-button>
                     <el-button type="danger">删除课文</el-button>
                 </template>
             </el-card>
