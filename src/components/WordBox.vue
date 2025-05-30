@@ -20,6 +20,10 @@
             //     isSeparation: false,
             //     highlight: false
             // })
+        },
+        showTool: {
+            type: Boolean,
+            default: true
         }
     });
 
@@ -88,20 +92,25 @@
                 placeholder="选择词性"
                 filterable
                 >
-                    <el-option label="名词" value="名词"/>
-                    <el-option label="数词" value="数词"/>
-                    <el-option label="量词" value="量词"/>
-                    <el-option label="动词" value="动词"/>
-                    <el-option label="形容词" value="形容词"/>
-                    <el-option label="区别词" value="区别词"/>
-                    <el-option label="副词" value="副词"/>
-                    <el-option label="连词" value="连词"/>
-                    <el-option label="介词" value="介词"/>
-                    <el-option label="助词" value="助词"/>
-                    <el-option label="语气词" value="语气词"/>
-                    <el-option label="短语" value="短语"/>
-                    <el-option label="短句" value="短句"/>
-                    <el-option label="其他" value="其他"/>
+                    <!-- 修改词性请一同修改：WordMeaningDisplay.vue 中的词性转换函数 -->
+                    <el-option label="名词" value="noun"></el-option>
+                    <el-option label="数词" value="numeral"></el-option>
+                    <el-option label="量词" value="measure_word"></el-option>
+                    <el-option label="动词" value="verb"></el-option>
+                    <el-option label="形容词" value="adjective"></el-option>
+                    <el-option label="区别词" value="distinguishing_word"></el-option>
+                    <el-option label="副词" value="adverb"></el-option>
+                    <el-option label="连词" value="conjunction"></el-option>
+                    <el-option label="介词" value="preposition"></el-option>
+                    <el-option label="助词" value="auxiliary"></el-option>
+                    <el-option label="语气词" value="modal_particle"></el-option>
+                    <el-option label="短语" value="phrase"></el-option>
+                    <el-option label="短句" value="sentence_fragment"></el-option>
+                    <el-option label="代词" value="pronoun"></el-option>
+                    <el-option label="叹词" value="interjection"></el-option>
+                    <el-option label="拟声词" value="onomatopoeia"></el-option>
+                    <el-option label="语素" value="morpheme"></el-option>
+                    <el-option label="其他" value="other"></el-option>
                 </el-select>
             </div>
             <div class="wordBox-item-group-box">
@@ -134,7 +143,7 @@
                     inactive-text="否"
                 />
             </div>
-            <div class="wordBox-item-group-box" style="margin-left: -15px;">
+            <div class="wordBox-item-group-box" style="margin-left: -15px;" v-show="showTool">
                 <p>工具：</p>
                 <el-button :icon="Scissor" circle title="分离单词" @click="emit('separation')" v-show="internalData.isSeparation"/>
                 <el-button :icon="Top" circle title="向上合并" @click="emit('mergeWord', 'top')"/>

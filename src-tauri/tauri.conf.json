@@ -12,9 +12,9 @@
   "app": {
     "windows": [
       {
-        "title": "learn-language",
-        "width": 800,
-        "height": 600
+        "title": "口语提升 - Learn Language",
+        "width": 1280,
+        "height": 720
       }
     ],
     "security": {

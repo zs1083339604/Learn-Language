@@ -1,4 +1,4 @@
-import { insert, select } from "../utils/sqlite";
+import { insert, select, update } from "../utils/sqlite";
 
 export default ()=>{
 
@@ -27,13 +27,26 @@ export default ()=>{
     }
 
     const getWordsByClassId = (classId) => {
-        return select("word", ["id", "content", "oartOfSpeech", "pronunciation", "interpretation", "other", "startIndex"]);
+        return select("word", ["id", "content", "oartOfSpeech", "pronunciation", "interpretation", "other", "startIndex", "spell", "applicable"], "classId = ?", [classId]);
+    }
+
+    const updateWordById = (id, data) => {
+        return update("word", {
+            oartOfSpeech: data.oartOfSpeech, 
+            pronunciation: data.pronunciation, 
+            interpretation: data.interpretation, 
+            other: data.other, 
+            applicable: data.applicable,
+            spell: data.spell,
+            startIndex: data.startIndex
+        }, "id = ?", [id]);
     }
 
     return {
         addWord,
         addWords,
         getWordByWord,
-        getWordsByClassId
+        getWordsByClassId,
+        updateWordById
     }
 }

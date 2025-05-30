@@ -21,7 +21,7 @@
         id: 0,
         inlineId: 0,
         word: "",
-        oartOfSpeech: "名词",
+        oartOfSpeech: "noun",
         pronunciation: "",
         interpretation: "",
         other: "",

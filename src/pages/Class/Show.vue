@@ -1,27 +1,84 @@
 <script setup lang="ts">
-    import { ref, onMounted, onBeforeUnmount, reactive } from 'vue';
+    import { ref, onMounted, onBeforeUnmount, reactive, watch, nextTick } from 'vue';
     import Breadcrumb from '../../components/Breadcrumb.vue';
     import {useRouter, useRoute} from 'vue-router'
     import useClass from '../../hooks/useClass';
-    import { show_error, show_loading, readClassData } from '../../utils/function';
+    import { show_error, show_loading, readClassData, stringToBoolean, deepCopy } from '../../utils/function';
     import { useAudioPlayer } from '../../hooks/useAudioPlayer';
     import useWord from '../../hooks/useWord';
-import { ElNotification } from 'element-plus';
+    import { ElMessage, ElNotification } from 'element-plus';
+    import WordMeaningDisplay from '../../components/WordMeaningDisplay.vue';
+    import WordBox from '../../components/WordBox.vue';
 
     const loadingObj = show_loading("正在获取数据……");
     const router = useRouter();
     const route = useRoute();
     const classId = ref(route.params.id);
     const {getClassFullInfoByID} = useClass();
-    const {getWordsByClassId} = useWord();
+    const {getWordsByClassId, updateWordById} = useWord();
 
     let classInfo = reactive({}),
     audioData = ref([]),
-    jsonData = [];
+    jsonData = [],
+    wordArray = ref([]);
 
     const contentArray = ref([]);
     const tabsName = ref("mainText");
     const leftClickRule = ref("play");
+    // 用于引用 WordMeaningDisplay 组件实例
+    const wordMeaningDisplayRef = ref(null);
+    // 控制组件的显示状态
+    const isDisplayingWordMeaning = ref(false);
+    const currentWordData = reactive({
+        word: '未知单词',
+        oartOfSpeech: '未知',
+        pronunciation: '',
+        interpretation: '无释义',
+        other: '',
+        spell: false
+    });
+    // 当前对单词操作的下标
+    const nowWordOperateIndex = ref(-1);
+    // 单词编辑弹窗
+    const dialogWordEditVisible = ref(false);
+    const wordBoxBaseObject = {
+        id: 0,
+        inlineId: 0,
+        word: "",
+        oartOfSpeech: "noun",
+        pronunciation: "",
+        interpretation: "",
+        other: "",
+        applicable: 1,
+        spell: true,
+        startIndex: "",
+        isSeparation: false,
+        highlight: false
+    };
+    const wordEditData = reactive({
+        ...wordBoxBaseObject
+    });
+
+    // 监听单词操作
+    watch(nowWordOperateIndex, (newValue, oldValue)=>{
+        if(newValue < 0 || newValue >= contentArray.value.length){
+            return;
+        }
+
+        const item = contentArray.value[newValue];
+        const wordItem = wordArray.value[newValue];
+        switch(leftClickRule.value){
+            case "play":
+                playSegmentDirectly(item.startTime, item.endTime - item.startTime);
+                break;
+            case "see":
+                openMeaningDisplay(wordItem.id);
+                break;
+            case "edit":
+                editWord(wordItem);
+                break;
+        }
+    });
 
     getClassFullInfoByID(classId.value).then((result)=>{
         if(result.rows.length == 0 || result.rows[0].isFinish == 0){
@@ -37,11 +94,12 @@ import { ElNotification } from 'element-plus';
         audioData.value = result.audioData;
         jsonData = result.jsonData;
 
-        return getWordsByClassId(classId);
+        return getWordsByClassId(classId.value);
         
         
     }).then((result)=>{
-        contentArray.value = formatHTMLByArray(classInfo.content, jsonData, result.rows);
+        wordArray.value = result.rows;
+        contentArray.value = formatHTMLByArray(classInfo.content);
     }).catch((error)=>{
         show_error(error);
     }).finally(()=>{
@@ -60,28 +118,99 @@ import { ElNotification } from 'element-plus';
     });
 
     const isSpanClick = ref(false);
-    const spanClick = (item)=>{
+    const spanClick = (index)=>{
         if(!isSpanClick.value){
             isSpanClick.value = true;
-            switch(leftClickRule.value){
-                case "play":
-                    playSegmentDirectly(item.startTime, item.endTime - item.startTime);
-                    break;
-                case "see":
-                    break;
-                case "edit":
-                    break;
-            }
-            isSpanClick.value = false;
+            // 使用 watch 如果点击的单词相同，不会触发，所以先设置成别的值
+            nowWordOperateIndex.value = -1;
+            nextTick(()=>{
+                nowWordOperateIndex.value = index;
+                isSpanClick.value = false;
+            })
+            // switch(leftClickRule.value){
+            //     case "play":
+            //         playSegmentDirectly(item.startTime, item.endTime - item.startTime);
+            //         break;
+            //     case "see":
+            //         openMeaningDisplay(item.id);
+            //         break;
+            //     case "edit":
+            //         break;
+            // }
+            
         }
     }
+
+    const handleDisplayClose = () => {
+        isDisplayingWordMeaning.value = false;
+    };
+
+    function editWord(item){
+        // 显示编辑框时，停止键盘监听
+        window.removeEventListener('keyup', handleKeyUp);
+        Object.assign(wordEditData, item, {
+            word: item.content,
+            spell: stringToBoolean(item.spell),
+            applicable: parseInt(item.applicable)
+        });
+        dialogWordEditVisible.value = true;
+    }
+
+    const handleEditWord = ()=>{
+        updateWordById(wordEditData.id, deepCopy(wordEditData)).then(()=>{
+            const index = wordArray.value.findIndex(item => item.id == wordEditData.id);
+            if(index == -1){
+                ElMessage.warning("单词不存在");
+                return;
+            }
+            Object.assign(wordArray.value[index], {
+                oartOfSpeech: wordEditData.oartOfSpeech,
+                pronunciation: wordEditData.pronunciation,
+                interpretation: wordEditData.interpretation,
+                other: wordEditData.other,
+                spell: wordEditData.spell ? "true" : "false",
+                applicable: String(wordEditData.applicable)
+            });
+            ElMessage.success("修改成功");
+            dialogWordEditVisible.value = false;
+        }).catch((error)=>{
+            show_error(error, "单词修改失败");
+        });
+    };
+
+    function closeEditWordDialog(){
+        // 对话框关闭重新监听
+        window.addEventListener('keyup', handleKeyUp);
+    }
+
+    function openMeaningDisplay(id){
+        const index = wordArray.value.findIndex(item => item.id == id);
+        if(index == -1){
+            ElMessage.warning("单词不存在");
+            return;
+        }
+        const item = wordArray.value[index];
+
+        Object.assign(currentWordData, {
+            word: item.content,
+            oartOfSpeech: item.oartOfSpeech,
+            pronunciation: item.pronunciation,
+            interpretation: item.interpretation,
+            other: item.other,
+            spell: stringToBoolean(item.spell)
+        });
+        
+        if (wordMeaningDisplayRef.value) {
+            wordMeaningDisplayRef.value.show(currentWordData);
+        }
+    };
     
-    function formatHTMLByArray(msg, jsonArray, wordArray){
+    function formatHTMLByArray(msg){
         let startIndex = 0;
         const childArray = [];
-        // 先循环 jsonArray 数组，用来创建内层的b标签
-        for(let i = 0; i < jsonArray.length; i++){
-            const item = jsonArray[i];
+        // 先循环 jsonData 数组，用来创建内层的b标签
+        for(let i = 0; i < jsonData.length; i++){
+            const item = jsonData[i];
             const searchText = item.Metadata[0].Data.text.Text;
             // const textLength = item.Metadata[0].Data.text.Length;
             let textLength = 0;
@@ -89,9 +218,9 @@ import { ElNotification } from 'element-plus';
 
             if(startIndex != -1){
                 // 找到了字符串，判断是否是最后一项
-                if(i != jsonArray.length - 1){
+                if(i != jsonData.length - 1){
                     // 不是最后一项，读取下一项文字的第一个字符，因为要考虑空格和标点符号，不能单纯读取长度
-                    const nextItem = jsonArray[i + 1];
+                    const nextItem = jsonData[i + 1];
                     const nextSearchText = nextItem.Metadata[0].Data.text.Text;
                     const nextStartIndex = msg.indexOf(nextSearchText, startIndex + textLength);
                     
@@ -119,20 +248,20 @@ import { ElNotification } from 'element-plus';
             }
         }
 
-        if(childArray.length != jsonArray.length){
+        if(childArray.length != jsonData.length){
             show_error("分词出错，请复制必要数据联系作者。<br>数据："+JSON.stringify(classInfo), "系统错误");
             return;
         }
 
         const spanArray = [];
         // 循环 wordArray 创建 span
-        for(let i = 0; i < wordArray.length; i++){
-            const item = wordArray[i];
+        for(let i = 0; i < wordArray.value.length; i++){
+            const item = wordArray.value[i];
             let child = [], startTime = childArray[item.startIndex].startTime, endTime = 0;
             let conditionNumber = 0;
 
-            if(i != wordArray.length - 1){
-                const nextItem = wordArray[i + 1];
+            if(i != wordArray.value.length - 1){
+                const nextItem = wordArray.value[i + 1];
                 conditionNumber = nextItem.startIndex;
             }else{
                 conditionNumber = childArray.length;
@@ -155,17 +284,31 @@ import { ElNotification } from 'element-plus';
     }
 
     // --- 键盘事件监听 ---
-    const handleKeyDown = (event) => {
+    const handleKeyUp = (event) => {
         if(event.code == "Space"){
             handlePlayAudio();
+            event.preventDefault();
         }else if(event.code == "KeyT"){
             changeTab();
+            event.preventDefault();
         }else if(event.code == "KeyR"){
             changeLeftClickRule("play");
         }else if(event.code == "KeyE"){
             changeLeftClickRule("edit");
         }else if(event.code == "KeyS"){
             changeLeftClickRule("see");
+        }else if(event.code == "KeyC"){
+            closeMeaningDisplay();
+        }else if(event.code == "ArrowUp"){
+            if(nowWordOperateIndex.value < contentArray.value.length - 1){
+                nowWordOperateIndex.value++;
+            }
+            event.preventDefault();
+        }else if(event.code == "ArrowDown"){
+            if(nowWordOperateIndex.value > 0){
+                nowWordOperateIndex.value--;
+            }
+            event.preventDefault();
         }
         
         console.log(event.code)
@@ -203,6 +346,12 @@ import { ElNotification } from 'element-plus';
         }
     }
 
+    function closeMeaningDisplay(){
+        if (wordMeaningDisplayRef.value) {
+            wordMeaningDisplayRef.value.hide();
+        }
+    }
+
     function showNotification(message){
         ElNotification({
             title: '通知',
@@ -213,11 +362,11 @@ import { ElNotification } from 'element-plus';
     }
 
     onMounted(() => {
-        window.addEventListener('keydown', handleKeyDown);
+        window.addEventListener('keyup', handleKeyUp);
     });
 
     onBeforeUnmount(() => {
-        window.removeEventListener('keydown', handleKeyDown);
+        window.removeEventListener('keyup', handleKeyUp);
     });
 </script>
 
@@ -243,7 +392,7 @@ import { ElNotification } from 'element-plus';
                     type="card"
                 >
                     <el-tab-pane label="正文" name="mainText">
-                        <span v-for="item in contentArray" @click="spanClick(item)">
+                        <span v-for="item,index in contentArray" @click="spanClick(index)" :class="['word-span', `pos-${wordArray[index].oartOfSpeech}`]">
                             <b v-for="bItem in item.child" :class="{'active': currentAudioTime > bItem.startTime && currentAudioTime < bItem.endTime}">
                                 {{ bItem.content }}
                             </b>
@@ -257,6 +406,25 @@ import { ElNotification } from 'element-plus';
             </div>
         </div>
 
+        <!-- 单词详情 -->
+        <WordMeaningDisplay
+        ref="wordMeaningDisplayRef" 
+        v-model="isDisplayingWordMeaning"
+        :data="currentWordData"
+        @close="handleDisplayClose" />
+
+        <!-- 单词编辑 -->
+        <el-dialog v-model="dialogWordEditVisible" title="编辑单词" width="1100" @close="closeEditWordDialog">
+            <WordBox v-model="wordEditData" :showTool="false"/>
+            <template #footer>
+                <div class="dialog-footer">
+                    <el-button @click="dialogWordEditVisible.value = false">取消</el-button>
+                    <el-button type="primary" @click="handleEditWord">确认</el-button>
+                </div>
+            </template>
+        </el-dialog>
+
+        <!-- 音频播放 -->
         <audio class="playAudio" ref="audioRef" controls></audio>
     </div>
 </template>
@@ -286,4 +454,97 @@ import { ElNotification } from 'element-plus';
     .class-show-body-tool-box{
         margin-bottom: 25px;
     }
+
+    .word-span{
+        cursor: pointer;
+        user-select: none;
+        position: relative; /* 相对定位，以便 ::after 绝对定位 */
+        display: inline-block; /* 确保能应用宽度和定位 */
+        padding-bottom: 5px; /* 为下划线留出空间 */
+    }
+
+    .word-span::after {
+        content: ''; /* 伪元素必须有 content */
+        position: absolute;
+        left: 0;
+        bottom: 0; /* 定位在单词下方 */
+        width: 90%; /* 留一点空隙 */
+        height: 3px; /* 下划线高度 */
+        border-radius: 2px; /* 稍微圆角 */
+        transition: background-color 0.3s ease; /* 颜色切换动画 */
+    }
+
+    /* 根据词性动态绑定的类名和颜色 */
+    .pos-noun::after {
+        background-color: #67C23A; /* 名词 */
+    }
+
+    .pos-numeral::after {
+        background-color: #E6A23C; /* 数词 */
+    }
+
+    .pos-measure_word::after {
+        background-color: #F56C6C; /* 量词 */
+    }
+
+    .pos-verb::after {
+        background-color: #409EFF; /* 动词 */
+    }
+
+    .pos-adjective::after {
+        background-color: #909399; /* 形容词 */
+    }
+
+    .pos-distinguishing_word::after {
+        background-color: #B3E19D; /* 区别词 */
+    }
+
+    .pos-adverb::after {
+        background-color: #606266; /* 副词 */
+    }
+
+    .pos-conjunction::after {
+        background-color: #D3DCE6; /* 连词 */
+    }
+
+    .pos-preposition::after {
+        background-color: #EBEEF5; /* 介词 */
+    }
+
+    .pos-auxiliary::after {
+        background-color: #F2F6FC; /* 助词 */
+    }
+
+    .pos-modal_particle::after {
+        background-color: #FDE2E2; /* 语气词 */
+    }
+
+    .pos-phrase::after {
+        background-color: #9FE6B8; /* 短语 */
+    }
+
+    .pos-sentence_fragment::after {
+        background-color: #BFE8F6; /* 短句 */
+    }
+
+    .pos-pronoun::after {
+        background-color: #F7B3D0; /* 代词 */
+    }
+
+    .pos-interjection::after {
+        background-color: #FFD700; /* 叹词 */
+    }
+
+    .pos-onomatopoeia::after {
+        background-color: #ADD8E6; /* 拟声词 */
+    }
+
+    .pos-morpheme::after {
+        background-color: #DDA0DD; /* 语素 */
+    }
+
+    .pos-other::after {
+        background-color: #D9D9D9; /* 其他 */
+    }
+
 </style>
