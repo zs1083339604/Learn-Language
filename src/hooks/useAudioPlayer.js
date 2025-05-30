@@ -20,6 +20,7 @@ export function useAudioPlayer(options) {
     let currentPlayingSegment = null; // 存储当前正在播放的片段信息，用于停止
     let animationFrameId = null; // requestAnimationFrame ID
     let audioObjectURL = null; // 用于存储 createObjectURL 返回的 URL，方便撤销
+    const currentAudioTime = ref(0); // 当前音频播放时间
 
     // --- 内部辅助函数 ---
 
@@ -47,6 +48,9 @@ export function useAudioPlayer(options) {
             return;
         }
 
+        currentAudioTime.value = audioRef.value.currentTime;
+
+        // 检查是否正在播放片段
         if (currentPlayingSegment) {
             // 判断是否达到片段结束时间
             // 使用小量的误差值进行比较，避免浮点数精度问题导致提前或延后停止
@@ -129,17 +133,21 @@ export function useAudioPlayer(options) {
             return;
         }
 
+        if(!audioRef.value.paused){
+            stopAudio(); // 停止当前播放
+        }
+
         const endTime = startTimeInSeconds + durationInSeconds;
 
         // 检查音频是否加载完成
-        if (audioRef.value.readyState < 2) {
-            ElMessage.warning('音频加载中，请稍候。');
-            audioRef.value.addEventListener('canplaythrough', () => {
-                playSegmentDirectly(startTimeInSeconds, durationInSeconds); // 再次尝试
-            }, { once: true });
-            audioRef.value.load(); // 尝试加载
-            return;
-        }
+        // if (audioRef.value.readyState < 2) {
+        //     ElMessage.warning('音频加载中，请稍候。');
+        //     audioRef.value.addEventListener('canplaythrough', () => {
+        //         playSegmentDirectly(startTimeInSeconds, durationInSeconds); // 再次尝试
+        //     }, { once: true });
+        //     audioRef.value.load(); // 尝试加载
+        //     return;
+        // }
 
         audioRef.value.currentTime = startTimeInSeconds;
         currentPlayingSegment = { startTime: startTimeInSeconds, endTime: endTime };
@@ -170,6 +178,15 @@ export function useAudioPlayer(options) {
         }
     };
 
+    /**
+     * 音频播放
+     */
+    const playAudio = () => {
+        if (audioRef.value) {
+            audioRef.value.play();
+        }
+    };
+
     // --- 生命周期钩子 ---
 
     onMounted(() => {
@@ -183,7 +200,7 @@ export function useAudioPlayer(options) {
             };
             // onseeking 也可以考虑停止，但这里让 RAF 保持运行可能更好，
             // 因为 seeking 结束后很快会触发 onplay 或 timeupdate
-            // audioRef.value.onseeking = stopAnimationFrameLoop;
+            audioRef.value.onseeking = stopAnimationFrameLoop;
         }
 
         // 监听 audioDataRef 的变化，动态更新音频源
@@ -204,18 +221,18 @@ export function useAudioPlayer(options) {
             audioRef.value.onplay = null;
             audioRef.value.onpause = null;
             audioRef.value.onended = null;
-            // audioRef.value.onseeking = null;
+            audioRef.value.onseeking = null;
         }
     });
 
     return {
         audioRef, // 将 ref 暴露出去，供 <audio> 标签绑定
-        audioSrc, // 暴露当前音频 URL，如果需要显示或调试
+        audioSrc, // 当前音频 URL，如果需要显示或调试
         playWholeAudio,
         playSegmentDirectly,
         pauseAudio,
         stopAudio,
-        currentAudioTime: ref(0), // 可以暴露当前播放时间以便 UI 更新
-        // 更多状态可以暴露，如 audioRef.value.paused, audioRef.value.duration 等
+        currentAudioTime, // 当前播放时间以便 UI 更新
+        playAudio,
     };
 }
