@@ -22,7 +22,7 @@
     getNoFinishClass(languageId).then((result)=>{
         if(result.rows.length == 1){
             router.replace({
-                path: "/word/add/" + result.rows[0].id
+                path: "/word/operate/add/" + result.rows[0].id
             })
         }
     }).catch((error)=>{
@@ -80,7 +80,7 @@
             // 添加成功
             // result.changes: 1, result.lastId: 
             router.replace({
-                path: "/word/add/" + result.lastId
+                path: "/word/operate/add/" + result.lastId
             })
         }).catch((error)=>{
             show_error(error);

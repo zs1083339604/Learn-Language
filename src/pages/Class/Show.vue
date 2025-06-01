@@ -6,21 +6,28 @@
     import { show_error, show_loading, readClassData, stringToBoolean, deepCopy } from '../../utils/function';
     import { useAudioPlayer } from '../../hooks/useAudioPlayer';
     import useWord from '../../hooks/useWord';
-    import { ElMessage, ElNotification } from 'element-plus';
+    import { ElMessage, ElMessageBox, ElNotification } from 'element-plus';
     import WordMeaningDisplay from '../../components/WordMeaningDisplay.vue';
     import WordBox from '../../components/WordBox.vue';
+    import { Headset, VideoPlay } from '@element-plus/icons-vue'
 
     const loadingObj = show_loading("正在获取数据……");
     const router = useRouter();
     const route = useRoute();
     const classId = ref(route.params.id);
-    const {getClassFullInfoByID} = useClass();
+    const {getClassFullInfoByID, editTranslationById, deleteClass} = useClass();
     const {getWordsByClassId, updateWordById} = useWord();
 
-    let classInfo = reactive({}),
+    let classInfo = reactive({
+        translation: ""
+    }),
     audioData = ref([]),
     jsonData = [],
-    wordArray = ref([]);
+    wordArray = ref([]),
+    sentenceArray = ref([]);
+
+    const punctuationReg = /[，。？！【】（）《》“”‘’；：\.\,\[\]\<\>「」]/;
+    const sentenceDrawer = ref(false);
 
     const contentArray = ref([]);
     const tabsName = ref("mainText");
@@ -41,6 +48,7 @@
     const nowWordOperateIndex = ref(-1);
     // 单词编辑弹窗
     const dialogWordEditVisible = ref(false);
+    const dialogTranslationEditVisible = ref(false);
     const wordBoxBaseObject = {
         id: 0,
         inlineId: 0,
@@ -127,17 +135,6 @@
                 nowWordOperateIndex.value = index;
                 isSpanClick.value = false;
             })
-            // switch(leftClickRule.value){
-            //     case "play":
-            //         playSegmentDirectly(item.startTime, item.endTime - item.startTime);
-            //         break;
-            //     case "see":
-            //         openMeaningDisplay(item.id);
-            //         break;
-            //     case "edit":
-            //         break;
-            // }
-            
         }
     }
 
@@ -146,8 +143,6 @@
     };
 
     function editWord(item){
-        // 显示编辑框时，停止键盘监听
-        window.removeEventListener('keyup', handleKeyUp);
         Object.assign(wordEditData, item, {
             word: item.content,
             spell: stringToBoolean(item.spell),
@@ -157,7 +152,7 @@
     }
 
     const handleEditWord = ()=>{
-        updateWordById(wordEditData.id, deepCopy(wordEditData)).then(()=>{
+        updateWordById(wordEditData.id, deepCopy(wordEditData), wordEditData.sort).then(()=>{
             const index = wordArray.value.findIndex(item => item.id == wordEditData.id);
             if(index == -1){
                 ElMessage.warning("单词不存在");
@@ -178,7 +173,56 @@
         });
     };
 
-    function closeEditWordDialog(){
+    const handleEditTranslation = ()=>{
+        editTranslationById(classId.value, classInfo.translation).then(()=>{
+            ElMessage.success("修改成功");
+            dialogTranslationEditVisible.value = false;
+        }).catch((error)=>{
+            show_error(error, "译文修改失败");
+        })
+    }
+
+    const editWords = ()=>{
+        router.push({
+            path: "/word/operate/edit/" + classId.value
+        });
+    }
+
+    const handleDeleteClass = ()=>{
+        ElMessageBox.confirm(
+            '确定要删除课文吗？',
+            '警告',
+            {
+                confirmButtonText: '确定',
+                cancelButtonText: '取消',
+                type: 'warning',
+            }
+        ).then(()=>{
+            return deleteClass(classInfo.filePath, classInfo.audioFileName, classInfo.audioSrtJsonName , classId.value);
+        }).then(()=>{
+            ElMessage.success("删除成功");
+            router.replace({
+                path: "/class/list/" + classInfo.languageId
+            })
+        }).catch((error)=>{
+            if(error != "cancel"){
+                show_error(error);
+            }
+        })
+    }
+
+    const playSentence = (index)=>{
+        const item = sentenceArray.value[index];
+        // console.log(sentenceArray.value[index])
+        playSegmentDirectly(item.startTime, item.endTime - item.startTime)
+    }
+
+    function openDialog(){
+        // 对话框打开停止监听
+        window.removeEventListener('keyup', handleKeyUp);
+    }
+
+    function closeDialog(){
         // 对话框关闭重新监听
         window.addEventListener('keyup', handleKeyUp);
     }
@@ -208,11 +252,14 @@
     function formatHTMLByArray(msg){
         let startIndex = 0;
         const childArray = [];
+        // 分句需要的变量
+        let sentenceMsg = "", sentenceStartTime = 0, sentenceEndTime = 0;
+        
         // 先循环 jsonData 数组，用来创建内层的b标签
         for(let i = 0; i < jsonData.length; i++){
             const item = jsonData[i];
             const searchText = item.Metadata[0].Data.text.Text;
-            // const textLength = item.Metadata[0].Data.text.Length;
+            const jsonTextLength = item.Metadata[0].Data.text.Length;
             let textLength = 0;
             startIndex = msg.indexOf(searchText, startIndex);
 
@@ -222,12 +269,12 @@
                     // 不是最后一项，读取下一项文字的第一个字符，因为要考虑空格和标点符号，不能单纯读取长度
                     const nextItem = jsonData[i + 1];
                     const nextSearchText = nextItem.Metadata[0].Data.text.Text;
-                    const nextStartIndex = msg.indexOf(nextSearchText, startIndex + textLength);
-                    
+                    const nextStartIndex = msg.indexOf(nextSearchText, startIndex + jsonTextLength);
+
                     if(nextStartIndex != -1){
                         textLength = nextStartIndex - startIndex;
                     }else{
-                        textLength = item.Metadata[0].Data.text.Length;
+                        textLength = jsonTextLength;
                     }
                 }else{
                     // 如果是最后一项
@@ -245,6 +292,27 @@
                     startTime,
                     endTime
                 })
+
+                if(sentenceMsg == ""){
+                    sentenceStartTime = startTime;
+                }
+                sentenceMsg += subString;
+                sentenceEndTime = endTime;
+                // 判断subString是否包含标点符号，用来分句
+                if(punctuationReg.test(subString)){
+                    sentenceArray.value.push({
+                        content: sentenceMsg,
+                        startTime: sentenceStartTime,
+                        endTime: sentenceEndTime
+                    });
+                    sentenceMsg = "";
+                }else if(i == jsonData.length - 1){
+                    sentenceArray.value.push({
+                        content: sentenceMsg,
+                        startTime: sentenceStartTime,
+                        endTime: sentenceEndTime
+                    });
+                }
             }
         }
 
@@ -280,6 +348,8 @@
             })
         }
 
+        // console.log(childArray, msg);
+
         return spanArray;
     }
 
@@ -310,8 +380,6 @@
             }
             event.preventDefault();
         }
-        
-        console.log(event.code)
     };
 
     function handlePlayAudio(){
@@ -378,12 +446,19 @@
         <div class="class-show-body">
             <div class="class-show-body-tool-box">
                 <div class="tool-item">
-                    <p>左键点击规则：</p>
+                    <p>点击规则：</p>
                     <el-radio-group v-model="leftClickRule">
                         <el-radio-button label="播放单词" value="play" />
                         <el-radio-button label="查看释义" value="see" />
                         <el-radio-button label="编辑单词" value="edit" />
                     </el-radio-group>
+                </div>
+                <div class="tool-item">
+                    <p>全篇工具：</p>
+                    <el-button @click="editWords">编辑单词</el-button>
+                    <el-button @click="dialogTranslationEditVisible = true">编辑译文</el-button>
+                    <el-button type="success" @click="sentenceDrawer = true">句子朗读</el-button>
+                    <el-button type="danger" @click="handleDeleteClass">删除课文</el-button>
                 </div>
             </div>
             <div class="clss-show-body-main-content">
@@ -400,7 +475,7 @@
                     </el-tab-pane>
 
                     <el-tab-pane label="译文" name="translation">
-                        {{ classInfo == null ? "" : classInfo.translation}}
+                        {{ classInfo.translation }}
                     </el-tab-pane>
                 </el-tabs>
             </div>
@@ -414,15 +489,45 @@
         @close="handleDisplayClose" />
 
         <!-- 单词编辑 -->
-        <el-dialog v-model="dialogWordEditVisible" title="编辑单词" width="1100" @close="closeEditWordDialog">
+        <el-dialog v-model="dialogWordEditVisible" title="编辑单词" width="1100" @close="closeDialog" @open="openDialog">
             <WordBox v-model="wordEditData" :showTool="false"/>
             <template #footer>
                 <div class="dialog-footer">
-                    <el-button @click="dialogWordEditVisible.value = false">取消</el-button>
+                    <el-button @click="dialogWordEditVisible = false">取消</el-button>
                     <el-button type="primary" @click="handleEditWord">确认</el-button>
                 </div>
             </template>
         </el-dialog>
+
+        <!-- 译文编辑 -->
+        <el-dialog v-model="dialogTranslationEditVisible" title="编辑译文" width="1100" @close="closeDialog" @open="openDialog">
+            <el-input
+                v-model="classInfo.translation"
+                :rows="20"
+                type="textarea"
+                placeholder="译文"
+            />
+            <template #footer>
+                <div class="dialog-footer">
+                    <el-button @click="dialogTranslationEditVisible = false">取消</el-button>
+                    <el-button type="primary" @click="handleEditTranslation">确认</el-button>
+                </div>
+            </template>
+        </el-dialog>
+
+        <!-- 句子朗读 -->
+        <el-drawer
+            v-model="sentenceDrawer"
+            title="句子朗读"
+            :direction="'rtl'"
+        >
+            <div class="sentence-box">
+                <div class="sentence-item" v-for="item,index in sentenceArray">
+                    <p>{{ item.content.replace(punctuationReg, '') }}</p>
+                    <el-button :icon="VideoPlay" circle @click="playSentence(index)"/>
+                </div>
+            </div>
+        </el-drawer>
 
         <!-- 音频播放 -->
         <audio class="playAudio" ref="audioRef" controls></audio>
@@ -453,6 +558,15 @@
     }
     .class-show-body-tool-box{
         margin-bottom: 25px;
+    }
+
+    .sentence-item{
+        display: flex;
+        align-items: center;
+        justify-content: space-between;
+        margin-bottom: 20px;
+        border: 1px solid #ccc;
+        padding: 5px;
     }
 
     .word-span{

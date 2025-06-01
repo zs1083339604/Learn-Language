@@ -15,8 +15,11 @@
     const commonWordsStore = useCommonWordsStore();
     const loadingObj = show_loading("正在获取课程信息");
     const { getClassFullInfoByID, setFinished } = useClass();
-    const { addWords } = useWord();
+    const { addWords, getWordsByClassId, editWords } = useWord();
     const classId = route.params.id;
+    const model = route.params.model;
+    const nextButtonLoading = ref(false);
+
     const wordBoxBaseObject = {
         id: 0,
         inlineId: 0,
@@ -34,12 +37,13 @@
 
     let classInfo = null,
     audioData = ref([]),
-    jsonData = [];
+    jsonData = [],
+    idArray = [];
 
     const items = ref([]);
 
     getClassFullInfoByID(classId).then((result)=>{
-        if(result.rows.length == 0 || result.rows[0].isFinish == 1){
+        if(result.rows.length == 0){
             throw Error("未获取到课程信息");
         }
 
@@ -49,15 +53,19 @@
     }).then((result)=>{
         jsonData = result.jsonData;
         audioData.value = result.audioData;
+
+        if(model == "edit"){
+            return getWordsByClassId(classId);
+        }
     
         for(let i = 0; i < jsonData.length; i++){
             // 插入Word数据
             const item = jsonData[i].Metadata[0].Data;
-            const wordItem = commonWordsStore.getWordInfoByWord(item.text.Text);
             const tempObj = deepCopy(wordBoxBaseObject);
             tempObj.word = item.text.Text;
             tempObj.startIndex = i;
 
+            const wordItem = commonWordsStore.getWordInfoByWord(item.text.Text);
             if(wordItem != null){
                 tempObj.inlineId = wordItem.inlineId == 0 ? wordItem.id : wordItem.inlineId;
                 tempObj.interpretation = wordItem.interpretation;
@@ -66,8 +74,23 @@
                 tempObj.other = wordItem.other;
                 tempObj.spell = stringToBoolean(wordItem.spell);
             }
-
+            
             items.value.push(tempObj);
+        }
+    }).then((result)=>{
+        if(model == "edit"){
+            // 仅在编辑时，才会走到这里
+            for(let i = 0; i < result.rows.length; i++){
+                const item = result.rows[i];
+                const tempObj = deepCopy(wordBoxBaseObject);
+                tempObj.word = item.content;
+                Object.assign(tempObj, item);
+                tempObj.spell = stringToBoolean(item.spell);
+                tempObj.isSeparation = item.content != jsonData[item.startIndex].Metadata[0].Data.text.Text;
+
+                idArray.push(item.id);
+                items.value.push(tempObj);
+            }
         }
     }).catch((error)=>{
         show_error(error, "获取课程信息失败");
@@ -176,24 +199,55 @@
                     type: 'warning',
                 }
             ).then(()=>{
+                nextButtonLoading.value = true;
                 submit();
             }).catch(()=>{})
         }else{
+            nextButtonLoading.value = true;
             submit();
         }
     }
 
     function submit(){
-        addWords(classInfo.languageId, classId, deepCopy(items.value)).then(()=>{
-            return setFinished(classId);
-        }).then(()=>{
-            // 成功
-            router.back();
-            ElMessage.success("添加成功");
-        }).catch((error)=>{
-            show_error(error, "提交失败");
-        });
+        if(model == 'add'){
+            addWords(classInfo.languageId, classId, deepCopy(items.value)).then(()=>{
+                return setFinished(classId);
+            }).then(()=>{
+                // 成功
+                router.back();
+                ElMessage.success("添加成功");
+            }).catch((error)=>{
+                show_error(error, "添加失败");
+            }).finally(()=>{
+                nextButtonLoading.value = false;
+            })
+        }else if(model == "edit"){
+            const datas = deepCopy(items.value);
+            const missingIds = findMissingIds(datas, idArray);
+            editWords(datas, missingIds, classInfo.languageId, classId).then(()=>{
+                router.back();
+                ElMessage.success("修改成功");
+            }).catch((error)=>{
+                show_error(error, "修改失败");
+            }).finally(()=>{
+                nextButtonLoading.value = false;
+            })
+        }
     }
+
+    // 从最终修改的数据中，查询已删除的ID
+    function findMissingIds(array1, array2) {
+        const array1Ids = new Set(array1.map(item => item.id));
+        const missingIds = [];
+        for (const id of array2) {
+            if (!array1Ids.has(id)) {
+                missingIds.push(id);
+            }
+        }
+
+        return missingIds;
+    }
+
 
     function getFullWordDataIndexArray(index) {
         const resultIndexArray = [];
@@ -223,7 +277,7 @@
             <WordBox v-model="items[index]" @playAudio="playAudio(index)" @mergeWord="mergeWord($event, index)" @separation="separation(index)"/>
         </div>
 
-        <el-button type="primary" @click="nextStep">提交</el-button>
+        <el-button type="primary" @click="nextStep" :loading="nextButtonLoading">提交</el-button>
         <audio ref="audioRef"></audio>
     </div>
 </template>

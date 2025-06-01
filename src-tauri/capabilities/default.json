@@ -32,6 +32,10 @@
     {
       "identifier": "fs:allow-read-text-file",
       "allow": [{ "path": "$RESOURCE/datas/**" }]
+    },
+    {
+      "identifier": "fs:allow-remove",
+      "allow": [{ "path": "$RESOURCE/datas/**" }]
     }
   ]
 }

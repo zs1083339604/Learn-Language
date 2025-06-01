@@ -63,6 +63,7 @@ const databseTable = [
             applicable INTEGER DEFAULT 1,
             spell INTEGER DEFAULT 1,
             startIndex INTEGER NOT NULL,
+            sort INTEGER DEFAULT 0,
             createTime TEXT DEFAULT (datetime('now', 'localtime'))
         );
         -- 设置查询索引
@@ -81,6 +82,7 @@ const databseTable = [
         -- COMMENT ON COLUMN word.applicable IS '单词的适用性，0只适用本课，1适用本语言全部课文';
         -- COMMENT ON COLUMN word.spell IS '单词是否可以背写，0不可以，1可以';
         -- COMMENT ON COLUMN word.startIndex IS '单词在字幕文件中的数组的下标';
+        -- COMMENT ON COLUMN word.sort IS '排序';
         -- COMMENT ON COLUMN word.createTime IS '创建时间';`
     }
 ]

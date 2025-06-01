@@ -1,4 +1,6 @@
-import { insert, select, update } from "../utils/sqlite";
+import { insert, select, update, deleteData } from "../utils/sqlite";
+import { remove } from "@tauri-apps/plugin-fs";
+import useWord from "./useWord";
 
 export default ()=>{
 
@@ -8,7 +10,7 @@ export default ()=>{
                 reject("名称、正文、音频或JSON路径有误");
                 return;
             }
-            insert("class", ["languageId", "title", "content", "audioFileName", "audioSrtJsonName", "filePath"], [data.languageId, data.title, data.content, data.audioFileName, data.audioSrtJsonName, data.filePath]).then((datas)=>{
+            insert("class", ["languageId", "title", "content", "translation", "audioFileName", "audioSrtJsonName", "filePath"], [data.languageId, data.title, data.content, data.translation, data.audioFileName, data.audioSrtJsonName, data.filePath]).then((datas)=>{
                 resolve(datas);
             }).catch((err)=>{
                 reject(err);
@@ -36,12 +38,45 @@ export default ()=>{
         return select("class", ["id", "title", "content", "isFinish"], "languageId = ?", [languageId]);
     }
 
+    const editTranslationById = (id, translation) => {
+        return update("class", {translation: translation}, "id = ?", [id]);
+    }
+
+    const deleteClass = (filePath, audioFileName, audioSrtJsonName, id)=>{
+        const audioFilePath = filePath + "/" + audioFileName,
+        audioSrtJsonPath = filePath + "/" + audioSrtJsonName;
+        return new Promise((resolve, reject) => {
+            // 删除字幕文件
+            remove(audioSrtJsonPath).then(()=>{
+                // 删除音频
+                return remove(audioFilePath);
+            }).then(()=>{
+                // 删除文件夹
+                return remove(filePath);
+            }).then(()=>{
+                // 文件删除成功，删除数据库
+                // 先删除所有单词数据
+                const {deleteWordsByClassId} = useWord();
+                return deleteWordsByClassId(id);
+            }).then(()=>{
+                // 删除课文
+                return deleteData("class", "id = ?", [id]);
+            }).then(()=>{
+                resolve();
+            }).catch((error)=>{
+                reject(error)
+            })
+        })
+    }
+
     return {
         addClass,
         getNoFinishClass,
         getClassFullInfoByID,
         setFinished,
         getALLClassBaseInfo,
-        getALLClassBaseInfoByLanguageId
+        getALLClassBaseInfoByLanguageId,
+        editTranslationById,
+        deleteClass
     }
 }

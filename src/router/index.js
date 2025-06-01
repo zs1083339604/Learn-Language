@@ -5,9 +5,9 @@ import SetPage from '../pages/SetPage.vue'
 import Class from '../pages/Class.vue'
 import AddClass from '../pages/class/Add.vue'
 import Word from '../pages/Word.vue'
-import AddWord from '../pages/Word/Add.vue'
 import ListClass from '../pages/Class/List.vue'
 import ShowClass from '../pages/Class/Show.vue'
+import Operate from '../pages/Word/Operate.vue'
 
 const routes = [
     { path: '/', redirect: '/language/add'},
@@ -49,9 +49,9 @@ const routes = [
         component: Word,
         children: [
             {
-                name: 'addWrod',
-                path: 'add/:id',
-                component: AddWord
+                name: 'operateWord',
+                path: 'operate/:model/:id',
+                component: Operate
             }
         ]
     },
