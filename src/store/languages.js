@@ -1,5 +1,5 @@
 import { defineStore } from "pinia";
-import { select, insert } from "../utils/sqlite";
+import { select, insert, update } from "../utils/sqlite";
 
 export const useLanguagesStore = defineStore("languages", {
     actions: {
@@ -32,6 +32,23 @@ export const useLanguagesStore = defineStore("languages", {
 
         getItemById(id){
             return this.languages.find(item => item.id == id)
+        },
+        
+        setLastViewId(languageId, classId){
+            return new Promise((resolve, reject) => {
+                const index = this.languages.findIndex(item => item.id == languageId);
+                if(index == -1){
+                    reject("语言不存在");
+                    return;
+                }
+
+                update("language", {lastViewId: classId}, "id = ?", [languageId]).then(() => {
+                    this.languages[index].lastViewId = classId;
+                    resolve();
+                }).catch((err)=>{
+                    reject(err);
+                })
+            })
         }
     },
     state(){

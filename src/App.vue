@@ -96,6 +96,7 @@ const {languages} = storeToRefs(languagesStore);
   .menu{
     width: 200px;
     overflow-y: auto;
+    flex-shrink: 0;
   }
   
 </style>

@@ -9,6 +9,8 @@
     import useWord from '../../hooks/useWord';
     import { useCommonWordsStore } from '../../store/commonWords';
     import { useAudioPlayer } from '../../hooks/useAudioPlayer';
+    import InfiniteList from 'vue3-infinite-list';
+
 
     const router = useRouter();
     const route = useRoute();
@@ -41,6 +43,8 @@
     idArray = [];
 
     const items = ref([]);
+    // 暂存的临时数组
+    let newItems = [];
 
     getClassFullInfoByID(classId).then((result)=>{
         if(result.rows.length == 0){
@@ -75,7 +79,7 @@
                 tempObj.spell = stringToBoolean(wordItem.spell);
             }
             
-            items.value.push(tempObj);
+            newItems.push(tempObj);
         }
     }).then((result)=>{
         if(model == "edit"){
@@ -89,9 +93,11 @@
                 tempObj.isSeparation = item.content != jsonData[item.startIndex].Metadata[0].Data.text.Text;
 
                 idArray.push(item.id);
-                items.value.push(tempObj);
+                newItems.push(tempObj);
             }
         }
+        // 在所有数据处理完毕后，一次性赋值
+        items.value = newItems;
     }).catch((error)=>{
         show_error(error, "获取课程信息失败");
     }).finally(()=>{
@@ -273,17 +279,31 @@
 <template>
     <div class="word-add-box">
         <Breadcrumb :text="classInfo != null ? classInfo.title : '未知'"></Breadcrumb>
-        <div v-for="(item, index) in items">
-            <WordBox v-model="items[index]" @playAudio="playAudio(index)" @mergeWord="mergeWord($event, index)" @separation="separation(index)"/>
+
+        <div class="word-list-box">
+            <InfiniteList :data="items" :width="'100%'" :height="'100%'" :itemSize="150"  v-slot="{ item, index }" :overscanCount="10" style="padding: 10px;">
+                <WordBox v-model="items[index]" @playAudio="playAudio(index)" @mergeWord="mergeWord($event, index)" @separation="separation(index)"/>
+            </InfiniteList>
         </div>
 
-        <el-button type="primary" @click="nextStep" :loading="nextButtonLoading">提交</el-button>
+        <div class="word-add-box-tool-box">
+            <el-button type="primary" @click="nextStep" :loading="nextButtonLoading">提交</el-button>
+        </div>
+        
         <audio ref="audioRef"></audio>
     </div>
 </template>
 
 <style scoped>
     .word-add-box{
+        height: 100%;
+        display: flex;
+        flex-direction: column;
+    }
+
+    .word-list-box{
+        padding-bottom: 10px;
+        flex-grow: 1;
         overflow-y: auto;
     }
 </style>

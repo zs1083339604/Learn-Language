@@ -4,7 +4,8 @@
     import { show_loading, show_error } from '../../utils/function';
     import {useRouter, useRoute} from 'vue-router'
     import { useCommonWordsStore } from '../../store/commonWords';
-import { ElMessage } from 'element-plus';
+    import { ElMessage } from 'element-plus';
+    import { useLanguagesStore } from '../../store/languages';
     
     const { getALLClassBaseInfoByLanguageId } = useClass();
     const router = useRouter();
@@ -12,6 +13,8 @@ import { ElMessage } from 'element-plus';
     const commonWordsStore = useCommonWordsStore();
     const languageId = ref(route.params.id);
     const list = ref([]);
+    const languagesStore = useLanguagesStore();
+    const language = ref([]);
 
     // 监听 route.params.id 的变化
     watch(
@@ -24,6 +27,7 @@ import { ElMessage } from 'element-plus';
                 result.rows.forEach(element => {
                     list.value.push(element);
                 });
+                language.value = languagesStore.getItemById(languageId.value);
 
                 return commonWordsStore.getCommonWords(languageId.value);
             }).catch((error)=>{
@@ -52,12 +56,13 @@ import { ElMessage } from 'element-plus';
         </div>
 
         <div class="class-list-box-body">
-            <el-card class="card-box" :class="{'noFinish': item.isFinish == 0}" v-for="item in list" :key="item.id" shadow="hover">
+            <el-card class="card-box" :class="{'noFinish': item.isFinish == 0, 'lastView': item.id == language.lastViewId}" v-for="item in list" :key="item.id" shadow="hover">
                 <template #header>
                 <div class="card-header">
                     <span>
                         {{ item.title }}
                         {{ item.isFinish == 0 ? ' (未添加完成)' : '' }}
+                        {{ item.id == language.lastViewId ? ' (上次浏览)' : '' }}
                     </span>
                 </div>
                 </template>

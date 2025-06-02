@@ -10,10 +10,12 @@
     import WordMeaningDisplay from '../../components/WordMeaningDisplay.vue';
     import WordBox from '../../components/WordBox.vue';
     import { Headset, VideoPlay } from '@element-plus/icons-vue'
+    import { useLanguagesStore } from '../../store/languages';
 
     const loadingObj = show_loading("正在获取数据……");
     const router = useRouter();
     const route = useRoute();
+    const languagesStore = useLanguagesStore();
     const classId = ref(route.params.id);
     const {getClassFullInfoByID, editTranslationById, deleteClass} = useClass();
     const {getWordsByClassId, updateWordById} = useWord();
@@ -107,6 +109,8 @@
         
     }).then((result)=>{
         wordArray.value = result.rows;
+        return languagesStore.setLastViewId(classInfo.languageId, classId.value);
+    }).then(()=>{
         contentArray.value = formatHTMLByArray(classInfo.content);
     }).catch((error)=>{
         show_error(error);
@@ -126,7 +130,7 @@
     });
 
     const isSpanClick = ref(false);
-    const spanClick = (index)=>{
+    const pClick = (index)=>{
         if(!isSpanClick.value){
             isSpanClick.value = true;
             // 使用 watch 如果点击的单词相同，不会触发，所以先设置成别的值
@@ -327,6 +331,7 @@
             const item = wordArray.value[i];
             let child = [], startTime = childArray[item.startIndex].startTime, endTime = 0;
             let conditionNumber = 0;
+            let isBr = false;
 
             if(i != wordArray.value.length - 1){
                 const nextItem = wordArray.value[i + 1];
@@ -337,6 +342,9 @@
 
             for(let j = item.startIndex; j < conditionNumber; j++){
                 const bItem = childArray[j];
+                if(/\n/.test(bItem.content)){
+                    isBr = true;
+                }
                 child.push(bItem);
                 endTime = bItem.endTime;
             }
@@ -344,11 +352,10 @@
             spanArray.push({
                 child,
                 startTime,
-                endTime
+                endTime,
+                isBr
             })
         }
-
-        // console.log(childArray, msg);
 
         return spanArray;
     }
@@ -467,15 +474,20 @@
                     type="card"
                 >
                     <el-tab-pane label="正文" name="mainText">
-                        <span v-for="item,index in contentArray" @click="spanClick(index)" :class="['word-span', `pos-${wordArray[index].oartOfSpeech}`]">
-                            <b v-for="bItem in item.child" :class="{'active': currentAudioTime > bItem.startTime && currentAudioTime < bItem.endTime}">
-                                {{ bItem.content }}
-                            </b>
-                        </span>
+                        <template v-for="item,index in contentArray">
+                            <p @click="pClick(index)" :class="['word-p', `pos-${wordArray[index].oartOfSpeech}`]">
+                                <span 
+                                    v-for="bItem in item.child" 
+                                    :class="{'active': currentAudioTime > bItem.startTime && currentAudioTime < bItem.endTime}"
+                                >
+                                    {{ bItem.content }}
+                                </span>
+                            </p>
+                            <br v-if="item.isBr" />
+                        </template>
                     </el-tab-pane>
 
-                    <el-tab-pane label="译文" name="translation">
-                        {{ classInfo.translation }}
+                    <el-tab-pane label="译文" name="translation" v-html="classInfo.translation.replace(/\n/g, '<br>')">
                     </el-tab-pane>
                 </el-tabs>
             </div>
@@ -541,11 +553,19 @@
     }
     .class-show-body{
         flex-grow: 1;
+        overflow-y: auto;
+        display: flex;
+        flex-direction: column;
     }
-    .clss-show-body-main-content b.active{
+    .clss-show-body-main-content{
+        flex-grow: 1;
+        overflow-y: auto;
+    }
+    .clss-show-body-main-content span.active{
         color: red;
     }
     .playAudio{
+        flex-shrink: 0;
         width: 100%;
     }
     .tool-item{
@@ -560,6 +580,10 @@
         margin-bottom: 25px;
     }
 
+    .el-tabs--top{
+        height: 100%;
+    }
+
     .sentence-item{
         display: flex;
         align-items: center;
@@ -569,7 +593,7 @@
         padding: 5px;
     }
 
-    .word-span{
+    .word-p{
         cursor: pointer;
         user-select: none;
         position: relative; /* 相对定位，以便 ::after 绝对定位 */
@@ -577,7 +601,7 @@
         padding-bottom: 5px; /* 为下划线留出空间 */
     }
 
-    .word-span::after {
+    .word-p::after {
         content: ''; /* 伪元素必须有 content */
         position: absolute;
         left: 0;
@@ -661,4 +685,11 @@
         background-color: #D9D9D9; /* 其他 */
     }
 
+</style>
+
+<style>
+    .el-tabs__content{
+        overflow-y: auto !important;
+        padding-bottom: 10px;
+    }
 </style>
