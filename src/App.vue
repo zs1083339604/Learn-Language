@@ -12,6 +12,7 @@ import { resourceDir } from '@tauri-apps/api/path';
 import { show_loading } from './utils/function';
 import { useLanguagesStore } from './store/languages';
 import { storeToRefs } from 'pinia';
+import { useOptionStore } from './store/option';
 // import { readTextFile, BaseDirectory, exists } from '@tauri-apps/plugin-fs';
 
 // (async ()=>{
@@ -21,12 +22,15 @@ import { storeToRefs } from 'pinia';
 const loadingObj = show_loading("正在初始化");
 const inited = ref(false);
 const languagesStore = useLanguagesStore();
+const optionStore = useOptionStore();
 connect().then(async ()=>{
   return resourceDir();
 }).then((result)=>{
   // 说明：exe路径不放在optionStore中，是因为它不可更改
   localStorage.setItem("exe_path", result);
   return languagesStore.getLanguages();
+}).then(()=>{
+  return optionStore.getOption();
 }).then(()=>{
   inited.value = true;
   loadingObj.close();

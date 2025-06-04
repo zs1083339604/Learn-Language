@@ -84,6 +84,25 @@ const databseTable = [
         -- COMMENT ON COLUMN word.startIndex IS '单词在字幕文件中的数组的下标';
         -- COMMENT ON COLUMN word.sort IS '排序';
         -- COMMENT ON COLUMN word.createTime IS '创建时间';`
+    },{
+        name: 'option',
+        sql: `CREATE TABLE option(
+            id INTEGER PRIMARY KEY AUTOINCREMENT NOT NULL,
+            nowAiPlatform TEXT DEFAULT 'ChatGLM',
+            ChatGLM TEXT,
+            DeepSeek TEXT,
+            Groq TEXT,
+            Google TEXT,
+            ChatGPT TEXT
+        );
+        -- COMMENT ON TABLE option IS '存储设置的表';
+        -- COMMENT ON COLUMN option.id IS '主键';
+        -- COMMENT ON COLUMN option.nowAiPlatform IS '当前使用的AI平台';
+        -- COMMENT ON COLUMN option.ChatGLM IS '存储ChatGLM的详细设置';
+        -- COMMENT ON COLUMN option.DeepSeek IS '存储DeepSeek的详细设置';
+        -- COMMENT ON COLUMN option.Groq IS '存储Groq的详细设置';
+        -- COMMENT ON COLUMN option.Google IS '存储Google的详细设置';
+        -- COMMENT ON COLUMN option.ChatGPT IS '存储ChatGPT的详细设置';`
     }
 ]
 
@@ -121,6 +140,10 @@ function init(name, sql) {
             if(result.length == 0){
                 // 如果表不存在，则创建表
                 await db.execute(sql);
+                if(name == "option"){
+                    // 设置表必须有一条初始数据
+                    await insert(name, ["nowAiPlatform"], ["ChatGLM"]);
+                }
             }
             resolve();
         } catch (error) {

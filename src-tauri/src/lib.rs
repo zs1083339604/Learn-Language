@@ -2,7 +2,7 @@
 
 mod utils;
 use tauri::Manager;
-use utils::api::{delete_path_contents, get_app_version, start_tts};
+use utils::api::{delete_path_contents, get_app_version, start_tts, send_api_request};
 
 #[tauri::command]
 fn greet(name: &str) -> String {
@@ -29,7 +29,8 @@ pub fn run() {
             greet,
             start_tts,
             get_app_version,
-            delete_path_contents
+            delete_path_contents,
+            send_api_request
         ])
         .run(tauri::generate_context!())
         .expect("error while running tauri application");

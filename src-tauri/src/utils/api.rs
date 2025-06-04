@@ -2,8 +2,10 @@ use crate::utils::custom_result::CustomResult;
 use crate::utils::tts::TTS;
 use base64::{engine::general_purpose, Engine as _};
 use futures_util::{sink::SinkExt, StreamExt};
-use serde::Deserialize;
+use serde::{Deserialize, Serialize};
 use serde_json::{json, Value};
+use tauri::Url;
+use std::collections::HashMap;
 use std::fs::{self, File};
 use std::io::Write;
 use std::path::{Path, PathBuf};
@@ -12,6 +14,8 @@ use tokio_tungstenite::{
     tungstenite::{client::IntoClientRequest, Message},
 };
 use uuid::Uuid;
+use tauri_plugin_http::reqwest;
+use reqwest::{ClientBuilder, Proxy, header::{HeaderMap, HeaderValue, HeaderName}};
 
 #[derive(Deserialize)]
 pub struct TTSData {
@@ -23,6 +27,16 @@ pub struct TTSData {
     root_path: String,
     save_file: bool,
 }
+
+#[derive(Deserialize, Serialize)]
+pub struct ApiRequest {
+    pub url: String,
+    pub method: String,
+    pub headers: HashMap<String, String>,
+    pub body: serde_json::Value,
+    pub proxy: Option<String>, // http://user:pass@host:port 或 socks5://user:pass@host:port
+}
+
 
 /// 配音
 ///
@@ -331,4 +345,92 @@ pub fn encode_audio_to_base64(
     let encoded = general_purpose::STANDARD.encode(&bytes_to_encode);
 
     Ok(encoded)
+}
+
+#[tauri::command]
+pub async fn send_api_request(request: ApiRequest) -> Result<CustomResult, CustomResult> {
+    let client_builder = ClientBuilder::new();
+    let client : reqwest::Client;
+
+    if let Some(proxy_url_str) = request.proxy {
+        match Url::parse(&proxy_url_str) {
+            Ok(proxy_url) => {
+                if proxy_url.scheme() == "http" || proxy_url.scheme() == "https" || proxy_url.scheme() == "socks5" {
+                    let proxy = Proxy::all(proxy_url_str).map_err(|e| 
+                        CustomResult::error(Some(format!("添加代理失败：{}", e)), None)
+                    )?;
+                    client = client_builder.proxy(proxy).build().map_err(|e| 
+                        CustomResult::error(Some(format!("创建客户端失败：{}", e)), None)
+                    )?;
+                } else {
+                    return Err(CustomResult::error(Some("不支持的代理协议".to_string()),  None));
+                }
+            }
+            Err(e) => {
+                return Err(CustomResult::error(Some(format!("解析代理URL失败: {}", e)), None))
+            }
+        }
+    }else{
+        client = client_builder.build().map_err(|e| 
+            CustomResult::error(Some(format!("创建客户端失败：{}", e)), None)
+        )?;
+    }
+
+    let mut headers = HeaderMap::new();
+    for (key, value) in request.headers { // key 是 String 类型
+        // 尝试将 String 类型的 key 转换为 HeaderName
+        match HeaderName::from_bytes(key.as_bytes()) {
+            Ok(header_name) => {
+                // 尝试将 String 类型的 value 转换为 HeaderValue
+                if let Ok(header_value) = HeaderValue::from_str(&value) {
+                    // 如果 key 和 value 都成功转换，则插入到 HeaderMap
+                    headers.insert(header_name, header_value);
+                } else {
+                    // 处理 header_value 解析失败的情况
+                    // 打印警告或记录日志，或者选择在这里返回一个 CustomResult 错误
+                    eprintln!("Warning: Invalid HeaderValue for key '{}': '{}'", key, value);
+                }
+            }
+            Err(e) => {
+                // 处理 key 无法解析为有效 HeaderName 的情况
+                // 打印警告或记录日志，或者选择在这里返回一个 CustomResult 错误
+                eprintln!("Warning: Invalid HeaderName '{}': {}", key, e);
+                // 示例：如果你希望遇到无效头名称就停止并返回错误，可以这样做：
+                // return Err(CustomResult::error(Some(format!("无效的请求头名称 '{}': {}", key, e)), None));
+            }
+        }
+    }
+
+    let mut request_builder = match request.method.as_str() {
+        "GET" => client.get(&request.url),
+        "POST" => client.post(&request.url),
+        "PUT" => client.put(&request.url),
+        "DELETE" => client.delete(&request.url),
+        _ => {
+            return Err(CustomResult::error(Some(format!("不支持的 HTTP 方法: {}", request.method)), None));
+        }
+    };
+
+    if !request.body.is_null() {
+        request_builder = request_builder.json(&request.body);
+    }
+
+    request_builder = request_builder.headers(headers);
+
+    match request_builder.send().await {
+        Ok(response) => {
+            let status = response.status();
+            let text = response.text().await.unwrap_or_else(|_| "".to_string());
+
+            if status.is_success() {
+                match serde_json::from_str::<serde_json::Value>(&text) {
+                    Ok(json_data) => Ok(CustomResult::success(None, Some(json!({"data": json_data})))),
+                    Err(e) => Err(CustomResult::error(Some(format!("解析 JSON 响应失败: {} - 响应内容: {}", e, text)), None)),
+                }
+            } else {
+                Err(CustomResult::error(Some(format!("API 请求失败，状态码: {}，响应: {}", status, text)), None))
+            }
+        }
+        Err(e) => Err(CustomResult::error(Some(format!("发送 HTTP 请求失败: {}", e)), None)),
+    }
 }
