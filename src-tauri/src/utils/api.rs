@@ -9,6 +9,7 @@ use std::collections::HashMap;
 use std::fs::{self, File};
 use std::io::Write;
 use std::path::{Path, PathBuf};
+use std::time::Duration;
 use tokio_tungstenite::{
     connect_async,
     tungstenite::{client::IntoClientRequest, Message},
@@ -349,10 +350,14 @@ pub fn encode_audio_to_base64(
 
 #[tauri::command]
 pub async fn send_api_request(request: ApiRequest) -> Result<CustomResult, CustomResult> {
-    let client_builder = ClientBuilder::new();
+    println!("创建客户端...");
+    let client_builder = ClientBuilder::new().connect_timeout(Duration::from_secs(5));
+
     let client : reqwest::Client;
 
+    println!("客户端创建完成");
     if let Some(proxy_url_str) = request.proxy {
+        println!("匹配到了代理");
         match Url::parse(&proxy_url_str) {
             Ok(proxy_url) => {
                 if proxy_url.scheme() == "http" || proxy_url.scheme() == "https" || proxy_url.scheme() == "socks5" {
@@ -362,6 +367,7 @@ pub async fn send_api_request(request: ApiRequest) -> Result<CustomResult, Custo
                     client = client_builder.proxy(proxy).build().map_err(|e| 
                         CustomResult::error(Some(format!("创建客户端失败：{}", e)), None)
                     )?;
+                    println!("代理添加成功");
                 } else {
                     return Err(CustomResult::error(Some("不支持的代理协议".to_string()),  None));
                 }
@@ -375,6 +381,8 @@ pub async fn send_api_request(request: ApiRequest) -> Result<CustomResult, Custo
             CustomResult::error(Some(format!("创建客户端失败：{}", e)), None)
         )?;
     }
+
+    println!("添加请求头...");
 
     let mut headers = HeaderMap::new();
     for (key, value) in request.headers { // key 是 String 类型
@@ -401,6 +409,8 @@ pub async fn send_api_request(request: ApiRequest) -> Result<CustomResult, Custo
         }
     }
 
+    println!("请求头添加成功");
+
     let mut request_builder = match request.method.as_str() {
         "GET" => client.get(&request.url),
         "POST" => client.post(&request.url),
@@ -417,20 +427,33 @@ pub async fn send_api_request(request: ApiRequest) -> Result<CustomResult, Custo
 
     request_builder = request_builder.headers(headers);
 
+    // 超时时间 - 可能会影响正常输出
+    // if let Some(timeout_s) = request.timeout_seconds {
+    //     request_builder = request_builder.timeout(Duration::from_secs(timeout_s));
+    // }
+
+    println!("发送数据");
     match request_builder.send().await {
         Ok(response) => {
+            println!("成功接收到数据");
             let status = response.status();
+            println!("获取text");
             let text = response.text().await.unwrap_or_else(|_| "".to_string());
 
             if status.is_success() {
+                println!("成功状态");
                 match serde_json::from_str::<serde_json::Value>(&text) {
                     Ok(json_data) => Ok(CustomResult::success(None, Some(json!({"data": json_data})))),
                     Err(e) => Err(CustomResult::error(Some(format!("解析 JSON 响应失败: {} - 响应内容: {}", e, text)), None)),
                 }
             } else {
+                println!("失败状态");
                 Err(CustomResult::error(Some(format!("API 请求失败，状态码: {}，响应: {}", status, text)), None))
             }
         }
-        Err(e) => Err(CustomResult::error(Some(format!("发送 HTTP 请求失败: {}", e)), None)),
+        Err(e) =>{ 
+            println!("失败接收到数据");
+            Err(CustomResult::error(Some(format!("发送 HTTP 请求失败: {}", e)), None))
+        } ,
     }
 }

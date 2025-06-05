@@ -10,6 +10,7 @@
     import { useCommonWordsStore } from '../../store/commonWords';
     import { useAudioPlayer } from '../../hooks/useAudioPlayer';
     import InfiniteList from 'vue3-infinite-list';
+    import useAiChat from '../../hooks/useAiChat';
 
 
     const router = useRouter();
@@ -18,9 +19,11 @@
     const loadingObj = show_loading("正在获取课程信息");
     const { getClassFullInfoByID, setFinished } = useClass();
     const { addWords, getWordsByClassId, editWords } = useWord();
+    const { aiAnnotation } = useAiChat();
     const classId = route.params.id;
     const model = route.params.model;
     const nextButtonLoading = ref(false);
+    const aiAnnotationLoading = ref(false);
 
     const wordBoxBaseObject = {
         id: 0,
@@ -186,6 +189,52 @@
         items.value.splice(index, 1, ...insertArray);
     }
 
+    const handleAIAnnotation = ()=>{
+        aiAnnotationLoading.value = true;
+        const wordArray = [];
+        const seenWords = new Set(); // 使用 Set 来存储已经添加过的单词，Set 查找效率更高
+
+        let index = 0;
+        items.value.forEach(item => {
+            if(index <= 20){
+                const word = item.word;
+                if (word && !seenWords.has(word)) { // 检查单词是否存在且是否已在 Set 中
+                    wordArray.push(word);
+                    seenWords.add(word); // 将新添加的单词加入 Set
+                }
+            }
+            
+            index++;
+        });
+
+        console.log(wordArray)
+
+        aiAnnotation(JSON.stringify(wordArray)).then((result)=>{
+            console.log(result);
+            // 调用解析函数处理AI返回的数据
+            const annotatedData = parseAIAnnotationResult(result);
+
+            // 遍历items数组，根据word匹配并更新数据
+            items.value.forEach(item => {
+                const annotation = annotatedData.find(data => data.word === item.word);
+                if (annotation) {
+                    // 填充AI返回内容到指定的键值对
+                    item.oartOfSpeech = annotation.oartOfSpeech;
+                    item.pronunciation = annotation.pronunciation;
+                    item.interpretation = annotation.interpretation;
+                    item.other = annotation.other;
+                    item.applicable = annotation.applicable;
+                }
+            });
+
+        }).catch((error)=>{
+            show_error(error, "ai标注失败");
+        }).finally(()=>{
+            aiAnnotationLoading.value = false
+        })
+        
+    }
+
     const nextStep = ()=>{
         // 循环判断 items 是否有未填写的数据
         let emptyDataNumber = 0;
@@ -241,6 +290,63 @@
         }
     }
 
+    /**
+     * 解析AI返回的字符串，将其转换为结构化的数组。
+     * @param {string} aiResult AI返回的原始字符串数据
+     * @returns {Array<Object>} 解析后的词汇标注数据数组
+     */
+    function parseAIAnnotationResult(aiResult){
+        const lines = aiResult.split('\n').filter(line => line.trim() !== ''); // 按行分割并过滤空行
+        const result = [];
+        let currentWordAnnotation = {};
+
+        lines.forEach(line => {
+            const trimmedLine = line.trim();
+            if (trimmedLine.includes('：')) { // 包含冒号的行是属性行
+                const [key, value] = trimmedLine.split('：').map(s => s.trim());
+                switch (key) {
+                    case '单词':
+                        currentWordAnnotation.word = value;
+                        break;
+                    case '词性':
+                        let oartOfSpeech = value;
+                        // gemini和groq在测试中会返回多个词性，只用第一个
+                        const oartOfSpeechArray = oartOfSpeech.split(/[\/\,\+]/);
+                        if(oartOfSpeechArray.length > 1){
+                            oartOfSpeech = oartOfSpeechArray[0];
+                        }
+                        currentWordAnnotation.oartOfSpeech = oartOfSpeech;
+                        break;
+                    case '读音':
+                        currentWordAnnotation.pronunciation = value;
+                        break;
+                    case '中文释义':
+                        currentWordAnnotation.interpretation = value;
+                        break;
+                    case '附加说明':
+                        currentWordAnnotation.other = value;
+                        break;
+                    case '适用性':
+                        currentWordAnnotation.applicable = parseInt(value, 10); // 转换为数字
+                        break;
+                    default:
+                        // 忽略其他未知键
+                        break;
+                }
+            }
+
+            if(trimmedLine.includes('适用性')){
+                // 一个单词最后一项
+                if (Object.keys(currentWordAnnotation).length > 0) {
+                    result.push(currentWordAnnotation);
+                    currentWordAnnotation = {};
+                }
+            }
+        });
+
+        return result;
+    };
+
     // 从最终修改的数据中，查询已删除的ID
     function findMissingIds(array1, array2) {
         const array1Ids = new Set(array1.map(item => item.id));
@@ -288,6 +394,7 @@
 
         <div class="word-add-box-tool-box">
             <el-button type="primary" @click="nextStep" :loading="nextButtonLoading">提交</el-button>
+            <el-button type="primary" @click="handleAIAnnotation" :loading="aiAnnotationLoading">AI标注</el-button>
         </div>
         
         <audio ref="audioRef"></audio>

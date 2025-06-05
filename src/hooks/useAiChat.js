@@ -1,9 +1,12 @@
-import { invoke } from '@tauri-apps/api/tauri';
+import { invoke } from '@tauri-apps/api/core';
+import { useOptionStore } from '../store/option';
 
 const useAiChat = () => {
-    const sendRequest = async (url, method, headers, body, proxy) => {
-        try {
-            const response = await invoke('send_api_request', {
+    const sendRequest = (url, method, headers, body, proxy) => {
+        return new Promise((resolve, reject) => {
+
+            proxy = proxy ? proxy : null;
+            invoke('send_api_request', {
                 request: {
                     url,
                     method,
@@ -11,17 +14,16 @@ const useAiChat = () => {
                     body,
                     proxy,
                 },
+            }).then((response)=>{
+                if (response.code == 200) {
+                    resolve(response);
+                } else {
+                    reject(response.msg || '未知错误')
+                }
+            }).catch((error)=>{
+                reject(error);
             });
-
-            if (response.code == 200) {
-                return response;
-            } else {
-                throw Error(response.msg || '未知错误');
-            }
-        } catch (error) {
-            console.error('Tauri Invoke Error:', error);
-            return error;
-        }
+        })
     };
 
     /**
@@ -51,21 +53,21 @@ const useAiChat = () => {
             };
 
             sendRequest(url, 'POST', headers, body, proxy).then((result)=>{
-                const data = result.data;
-                console.log(result);
+                const data = result.data.data;
 
                 const choices = data?.choices;
                 if (choices && choices.length > 0) {
                     const message = choices[0].message;
                     if (message.content) {
                         resolve(message.content);
-                    }else{
-                        reject('ChatGLM 响应格式不正确或无内容');
+                        return;
                     }
-                }else{
-                    reject('ChatGLM 响应格式不正确或无内容');
                 }
+
+                reject('ChatGLM 响应格式不正确或无内容');
             }).catch((error)=>{
+                // 接口错误返回示例："API 请求失败，状态码: 401 Unauthorized，响应: {\"error\":{\"code\":\"401\",\"message\":\"令牌已过期或验证不正确！\"}}"
+                // 懒得解析了，直接展示给用户吧😀
                 reject(error);
             });
         })
@@ -104,7 +106,7 @@ const useAiChat = () => {
             };
 
             sendRequest(url, 'POST', headers, body, proxy).then((result)=>{
-                console.log(result)
+                const data = result.data.data;
                 const choices = data?.choices;
                 if (choices && choices.length > 0 && choices[0].message && choices[0].message.content) {
                     resolve(choices[0].message.content);
@@ -144,7 +146,7 @@ const useAiChat = () => {
             };
 
             sendRequest(url, 'POST', headers, body, proxy).then((result)=>{
-                console.log(result);
+                const data = result.data.data;
                 const choices = data?.choices;
                 if (choices && choices.length > 0 && choices[0].message && choices[0].message.content) {
                     resolve(choices[0].message.content);
@@ -152,6 +154,7 @@ const useAiChat = () => {
                     reject('Groq 响应格式不正确或无内容');
                 }
             }).catch((error)=>{
+                // 接口错误示例："API 请求失败，状态码: 401 Unauthorized，响应: {"error":{"message":"Invalid API Key","type":"invalid_request_error","code":"invalid_api_key"}}"
                 reject(error);
             });
         })
@@ -184,19 +187,44 @@ const useAiChat = () => {
             };
 
             sendRequest(url, 'POST', headers, body, proxy).then((result)=>{
-                console.log(result);
+                const data = result.data.data;
                 const candidates = data?.candidates;
                 if (candidates && candidates.length > 0 && candidates[0].content && candidates[0].content.parts && candidates[0].content.parts.length > 0) {
                     const textPart = candidates[0].content.parts.find(part => part.text);
                     if (textPart) {
                         resolve(textPart.text);
-                    }else{
-                        reject('Google Gemini 响应格式不正确或无内容');
+                        return;
                     }
-                }else{
-                    reject('Google Gemini 响应格式不正确或无内容');
                 }
+
+                reject('Google Gemini 响应格式不正确或无内容');
             }).catch((error)=>{
+                /**
+                 * 接口错误示例：
+                 * "API 请求失败，状态码: 400 Bad Request，响应: {
+                    "error": {
+                        "code": 400,
+                        "message": "API key not valid. Please pass a valid API key.",
+                        "status": "INVALID_ARGUMENT",
+                        "details": [
+                        {
+                            "@type": "type.googleapis.com/google.rpc.ErrorInfo",
+                            "reason": "API_KEY_INVALID",
+                            "domain": "googleapis.com",
+                            "metadata": {
+                            "service": "generativelanguage.googleapis.com"
+                            }
+                        },
+                        {
+                            "@type": "type.googleapis.com/google.rpc.LocalizedMessage",
+                            "locale": "en-US",
+                            "message": "API key not valid. Please pass a valid API key."
+                        }
+                        ]
+                    }
+                    }
+                    "
+                 */
                 reject(error);
             })
         })
@@ -221,15 +249,14 @@ const useAiChat = () => {
                 model: model,
                 messages: [
                     {
-                        role: 'user',
-                        content: prompt,
-                    },
-                ],
-                stream: false,
+                        role: "user",
+                        content: prompt
+                    }
+                ]
             };
 
             sendRequest(url, 'POST', headers, body, proxy).then((result)=>{
-                console.log(result);
+                const data = result.data.data;
                 const choices = data?.choices;
                 if (choices && choices.length > 0 && choices[0].message && choices[0].message.content) {
                     resolve(choices[0].message.content);
@@ -237,10 +264,83 @@ const useAiChat = () => {
                     reject('ChatGPT 响应格式不正确或无内容');
                 }
             }).catch((error)=>{
+                /**
+                 * 接口错误返回示例："API 请求失败，状态码: 401 Unauthorized，响应: {
+                        "error": {
+                            "message": "Incorrect API key provided: qqqqqqqq**********1231. You can find your API key at https://platform.openai.com/account/api-keys.",
+                            "type": "invalid_request_error",
+                            "param": null,
+                            "code": "invalid_api_key"
+                        }
+                    }
+                    "
+                 */
                 reject(error);
             })
         })
     };
+
+    const aiAnnotation = (wordsString)=>{
+        return new Promise((resolve, reject) => {
+            const prompt = `你是一个语言专家，用户会把单词以数组形式发给你，请你以简体中文的形式返回给用户，并解释单词词性、单词读音、单词中文释义、附加说明、以及其适用性是仅限于本课文输出0，该语言通用输出1。
+以如下格式返回，每个单词之前用2个换行隔开，不要输出多余的话：
+单词：单词内容
+词性：可选输出 noun,numeral,measure_word,verb,adjective,distinguishing_word,adverb,conjunction,preposition,auxiliary,modal_particle,phrase,sentence_fragment,pronoun,interjection,onomatopoeia,morpheme,other
+读音：
+中文释义：
+附加说明：
+适用性：可选输出 0,1
+
+单词：${wordsString}`
+
+            const optionStore = useOptionStore();
+            const aiOption = optionStore.getAIOption();
+            const nowAiPlatform = aiOption.nowAiPlatform;
+            const model = aiOption[nowAiPlatform].model;
+            const apiKey = aiOption[nowAiPlatform].apiKey;
+            const proxy = aiOption[nowAiPlatform].proxy;
+
+            switch(nowAiPlatform){
+                case 'ChatGLM':
+                    chatGLM(prompt, model, apiKey, proxy).then((result)=>{
+                        resolve(result);
+                    }).catch((error)=>{
+                        reject(error);
+                    });
+                    break;
+                case 'DeepSeek':
+                    deepSeek(prompt, model, apiKey, proxy).then((result)=>{
+                        resolve(result);
+                    }).catch((error)=>{
+                        reject(error);
+                    });
+                    break;
+                case 'Groq':
+                    groq(prompt, model, apiKey, proxy).then((result)=>{
+                        resolve(result);
+                    }).catch((error)=>{
+                        reject(error);
+                    });
+                    break;
+                case 'Google':
+                    google(prompt, model, apiKey, proxy).then((result)=>{
+                        resolve(result);
+                    }).catch((error)=>{
+                        reject(error);
+                    });
+                    break;
+                case 'ChatGPT':
+                    chatGPT(prompt, model, apiKey, proxy).then((result)=>{
+                        resolve(result);
+                    }).catch((error)=>{
+                        reject(error);
+                    });
+                    break;
+                default :
+                    reject('未知的AI平台');
+            }
+        });
+    }
 
     return {
         chatGLM,
@@ -248,6 +348,7 @@ const useAiChat = () => {
         groq,
         google,
         chatGPT,
+        aiAnnotation
     };
 };
 

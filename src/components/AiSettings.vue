@@ -2,7 +2,7 @@
     import { ref, reactive, watch, computed, onMounted } from 'vue';
     import { ElMessage } from 'element-plus';
     import { useOptionStore } from '../store/option';
-import { deepCopy, show_error } from '../utils/function';
+    import { deepCopy, show_error } from '../utils/function';
 
     const optionStore = useOptionStore();
 
@@ -21,11 +21,22 @@ import { deepCopy, show_error } from '../utils/function';
             { label: 'deepseek-reasoner', value: 'deepseek-reasoner' },
         ],
         Groq: [
+            { label: 'allam-2-7b', value: 'allam-2-7b' },
+            { label: 'compound-beta(小贵)', value: 'compound-beta' },
+            { label: 'deepseek-r1-distill-llama-70b', value: 'deepseek-r1-distill-llama-70b' },
+            { label: 'gemma2-9b-it', value: 'gemma2-9b-it' },
+            { label: 'llama-guard-3-8b', value: 'llama-guard-3-8b' },
             { label: 'llama3-8b-8192', value: 'llama3-8b-8192' },
             { label: 'llama3-70b-8192', value: 'llama3-70b-8192' },
-            { label: 'meta-llama/llama-guard-4-12b', value: 'meta-llama/llama-guard-4-12b' },
             { label: 'llama-3.3-70b-versatile', value: 'llama-3.3-70b-versatile' },
             { label: 'llama-3.1-8b-instant', value: 'llama-3.1-8b-instant' },
+            { label: 'llama-4-maverick-17b-128e-instruct', value: 'meta-llama/llama-4-maverick-17b-128e-instruct' },
+            { label: 'llama-4-scout-17b-16e-instruct', value: 'meta-llama/llama-4-scout-17b-16e-instruct' },
+            { label: 'llama-prompt-guard-2-22m', value: 'meta-llama/llama-prompt-guard-2-22m' },
+            { label: 'llama-prompt-guard-2-86m', value: 'meta-llama/llama-prompt-guard-2-86m' },
+            { label: 'llama-guard-4-12b', value: 'meta-llama/llama-guard-4-12b' },
+            { label: 'mistral-saba-24b', value: 'mistral-saba-24b' },
+            { label: 'qwen-qwq-32b', value: 'qwen-qwq-32b' }
         ],
         Google: [
             { label: 'Gemini 2.0 Flash', value: 'gemini-2.0-flash' },
@@ -60,16 +71,6 @@ import { deepCopy, show_error } from '../utils/function';
     // 计算属性：根据当前选择的平台获取可用模型列表
     const availableModels = computed(() => {
         return aiModels[selectedAiPlatform.value] || [];
-    });
-
-    // 计算属性：代理地址校验
-    const isProxyValid = computed(() => {
-        const proxy = currentSettings.proxy.trim();
-        if (!proxy) {
-            return true; // 允许为空
-        }
-        const regex = /^(http|https|socks5):\/\/.+$/;
-        return regex.test(proxy);
     });
 
     /**
@@ -160,6 +161,7 @@ import { deepCopy, show_error } from '../utils/function';
            }
         }
 
+        allModelConfigs.nowAiPlatform = selectedAiPlatform.value;
         allModelConfigs[selectedAiPlatform.value] = {
             apiKey: currentSettings.apiKey,
             proxy: currentSettings.proxy,
@@ -184,77 +186,52 @@ import { deepCopy, show_error } from '../utils/function';
 </script>
 
 <template>
-    <el-card class="box-card">
-        <template #header>
-            <div class="card-header">
-                <span>AI 模型设置</span>
-            </div>
-        </template>
 
-        <el-form label-width="120px" @submit.prevent>
-            <el-form-item label="选择 AI 平台">
-                <el-radio-group v-model="selectedAiPlatform">
-                    <el-radio-button value="ChatGLM">ChatGLM</el-radio-button>
-                    <el-radio-button value="DeepSeek">DeepSeek</el-radio-button>
-                    <el-radio-button value="Groq">Groq</el-radio-button>
-                    <el-radio-button value="Google">Google</el-radio-button>
-                    <el-radio-button value="ChatGPT">ChatGPT</el-radio-button>
-                </el-radio-group>
-            </el-form-item>
+    <el-form label-width="120px" @submit.prevent>
+        <el-form-item label="选择 AI 平台">
+            <el-radio-group v-model="selectedAiPlatform">
+                <el-radio-button value="ChatGLM">ChatGLM</el-radio-button>
+                <el-radio-button value="DeepSeek">DeepSeek</el-radio-button>
+                <el-radio-button value="Groq">Groq</el-radio-button>
+                <el-radio-button value="Google">Google</el-radio-button>
+                <el-radio-button value="ChatGPT">ChatGPT</el-radio-button>
+            </el-radio-group>
+        </el-form-item>
 
-            <el-form-item label="模型选择">
-                <el-select v-model="currentSettings.model" placeholder="请选择模型" style="width: 100%">
-                    <el-option
-                    v-for="model in availableModels"
-                    :key="model.value"
-                    :label="model.label"
-                    :value="model.value"
-                    />
-                </el-select>
-            </el-form-item>
-
-            <el-form-item label="API 密钥">
-                <el-input
-                    v-model="currentSettings.apiKey"
-                    type="password"
-                    show-password
-                    placeholder="请输入 API 密钥"
+        <el-form-item label="模型选择">
+            <el-select v-model="currentSettings.model" placeholder="请选择模型" style="width: 100%">
+                <el-option
+                v-for="model in availableModels"
+                :key="model.value"
+                :label="model.label"
+                :value="model.value"
                 />
-            </el-form-item>
+            </el-select>
+        </el-form-item>
 
-            <el-form-item label="代理地址 (可选)">
-                <el-input
-                    v-model="currentSettings.proxy"
-                    placeholder="例如: http://user:pass@host:port 或 socks5://host:port"
-                />
-            </el-form-item>
+        <el-form-item label="API 密钥">
+            <el-input
+                v-model="currentSettings.apiKey"
+                type="password"
+                show-password
+                placeholder="请输入 API 密钥"
+            />
+        </el-form-item>
 
-            <el-form-item>
-                <el-button type="primary" @click="saveSettings">保存AI设置</el-button>
-            </el-form-item>
-        </el-form>
-    </el-card>
+        <el-form-item label="代理地址 (可选)">
+            <el-input
+                v-model="currentSettings.proxy"
+                placeholder="例如: http://user:pass@host:port 或 socks5://host:port"
+            />
+        </el-form-item>
+
+        <el-form-item>
+            <el-button type="primary" @click="saveSettings">保存AI设置</el-button>
+        </el-form-item>
+    </el-form>
+
 </template>
 
 <style scoped>
-    .card-header {
-        display: flex;
-        justify-content: space-between;
-        align-items: center;
-    }
 
-    .el-form-item__error {
-        color: var(--el-color-danger);
-        font-size: 12px;
-        line-height: 1;
-        padding-top: 2px;
-        position: absolute;
-        top: 100%;
-        left: 0;
-    }
-
-    .is-error .el-input__wrapper {
-        border-color: var(--el-color-danger) !important;
-        box-shadow: 0 0 0 1px var(--el-color-danger) inset !important;
-    }
 </style>
