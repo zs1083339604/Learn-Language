@@ -23,6 +23,18 @@ export const useOptionStore = defineStore("option", {
                 this.option[aiName] = JSON.parse(this.option[aiName]);
             }
         },
+        saveOption(datas, replaceStoreData = true){
+            return new Promise((resolve, reject) => {
+                update("option", datas, 'id = ?', [1]).then(()=>{
+                    if(replaceStoreData){
+                        Object.assign(this.option, datas);
+                    }
+                    resolve();
+                }).catch((error)=>{
+                    reject(error);
+                }) 
+            });
+        },
         getAIOption(){
             return {
                 nowAiPlatform: this.option.nowAiPlatform,
@@ -34,14 +46,16 @@ export const useOptionStore = defineStore("option", {
             }
         },
         saveAIOption(datas){
-            return new Promise((resolve, reject) => {
-                update("option", datas, 'id = ?', [1]).then(()=>{
-                    Object.assign(this.option, datas);
-                    resolve();
-                }).catch((error)=>{
-                    reject(error);
-                })
-            });
+            return this.saveOption(datas);
+        },
+        getAIPromptOption(){
+            return {
+                annotation: this.option.annotationPrompt,
+                translation: this.option.translationPrompt
+            }
+        },
+        saveAIPromptOption(datas){
+            return this.saveOption(datas);
         }
     },
     state(){

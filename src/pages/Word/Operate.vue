@@ -24,6 +24,7 @@
     const model = route.params.model;
     const nextButtonLoading = ref(false);
     const aiAnnotationLoading = ref(false);
+    const semiAutomaticAIAnnotationLoading = ref(false);
 
     const wordBoxBaseObject = {
         id: 0,
@@ -189,50 +190,61 @@
         items.value.splice(index, 1, ...insertArray);
     }
 
-    const handleAIAnnotation = ()=>{
+    const handleAIAnnotation = async ()=>{
         aiAnnotationLoading.value = true;
-        const wordArray = [];
-        const seenWords = new Set(); // 使用 Set 来存储已经添加过的单词，Set 查找效率更高
+        const allWordsToAnnotate = [];
+        const seenWords = new Set();
 
-        let index = 0;
+        // 收集所有需要标注的唯一单词
         items.value.forEach(item => {
-            if(index <= 20){
-                const word = item.word;
-                if (word && !seenWords.has(word)) { // 检查单词是否存在且是否已在 Set 中
-                    wordArray.push(word);
-                    seenWords.add(word); // 将新添加的单词加入 Set
-                }
+            const word = item.word;
+            if (word && !seenWords.has(word)) {
+                allWordsToAnnotate.push(word);
+                seenWords.add(word);
             }
-            
-            index++;
         });
 
-        console.log(wordArray)
-
-        aiAnnotation(JSON.stringify(wordArray)).then((result)=>{
-            console.log(result);
-            // 调用解析函数处理AI返回的数据
-            const annotatedData = parseAIAnnotationResult(result);
-
-            // 遍历items数组，根据word匹配并更新数据
-            items.value.forEach(item => {
-                const annotation = annotatedData.find(data => data.word === item.word);
-                if (annotation) {
-                    // 填充AI返回内容到指定的键值对
-                    item.oartOfSpeech = annotation.oartOfSpeech;
-                    item.pronunciation = annotation.pronunciation;
-                    item.interpretation = annotation.interpretation;
-                    item.other = annotation.other;
-                    item.applicable = annotation.applicable;
-                }
-            });
-
-        }).catch((error)=>{
-            show_error(error, "ai标注失败");
-        }).finally(()=>{
-            aiAnnotationLoading.value = false
-        })
+        const BATCH_SIZE = 20; // 定义每批发送的单词数量
+        let startIndex = 0;
         
+        try {
+            while (startIndex < allWordsToAnnotate.length) {
+                const currentBatchWords = allWordsToAnnotate.slice(startIndex, startIndex + BATCH_SIZE);
+                
+                // 发送当前批次的单词给AI
+                console.log("当前批次的单词：" + currentBatchWords)
+                const result = await aiAnnotation(JSON.stringify(currentBatchWords)); // 使用 await 等待AI返回
+                console.log("AI标注结果：", result);
+
+                // 解析AI返回的数据
+                const annotatedDataArray = parseAIAnnotationResult(result);
+
+                const annotatedDataMap = new Map();
+                annotatedDataArray.forEach(annotation => {
+                    annotatedDataMap.set(annotation.word, annotation);
+                });
+
+                // 匹配并更新items中的数据
+                items.value.forEach(item => {
+                    const annotation = annotatedDataMap.get(item.word);
+                    if (annotation) {
+                        item.oartOfSpeech = annotation.oartOfSpeech;
+                        item.pronunciation = annotation.pronunciation;
+                        item.interpretation = annotation.interpretation;
+                        item.other = annotation.other;
+                        item.applicable = annotation.applicable;
+                    }
+                });
+
+                startIndex += BATCH_SIZE; // 更新起始索引，准备下一批
+            }
+
+            ElMessage.success("AI标注完成！");
+        } catch (error) {
+            show_error(error, "ai标注失败");
+        } finally {
+            aiAnnotationLoading.value = false;
+        }
     }
 
     const nextStep = ()=>{
@@ -394,7 +406,8 @@
 
         <div class="word-add-box-tool-box">
             <el-button type="primary" @click="nextStep" :loading="nextButtonLoading">提交</el-button>
-            <el-button type="primary" @click="handleAIAnnotation" :loading="aiAnnotationLoading">AI标注</el-button>
+            <el-button type="success" @click="handleAIAnnotation" :loading="aiAnnotationLoading">全自动AI标注</el-button>
+            <el-button type="info" :loading="semiAutomaticAIAnnotationLoading">半自动AI标注（无需API密钥）</el-button>
         </div>
         
         <audio ref="audioRef"></audio>

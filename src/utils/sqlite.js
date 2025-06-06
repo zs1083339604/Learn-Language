@@ -93,7 +93,9 @@ const databseTable = [
             DeepSeek TEXT,
             Groq TEXT,
             Google TEXT,
-            ChatGPT TEXT
+            ChatGPT TEXT,
+            annotationPrompt TEXT,
+            translationPrompt TEXT,
         );
         -- COMMENT ON TABLE option IS '存储设置的表';
         -- COMMENT ON COLUMN option.id IS '主键';
@@ -102,7 +104,9 @@ const databseTable = [
         -- COMMENT ON COLUMN option.DeepSeek IS '存储DeepSeek的详细设置';
         -- COMMENT ON COLUMN option.Groq IS '存储Groq的详细设置';
         -- COMMENT ON COLUMN option.Google IS '存储Google的详细设置';
-        -- COMMENT ON COLUMN option.ChatGPT IS '存储ChatGPT的详细设置';`
+        -- COMMENT ON COLUMN option.ChatGPT IS '存储ChatGPT的详细设置';
+        -- COMMENT ON COLUMN option.annotationPrompt IS '单词标注的AI提示词';
+        -- COMMENT ON COLUMN option.translationPrompt IS '翻译的AI提示词';`
     }
 ]
 

@@ -1,5 +1,6 @@
 import { invoke } from '@tauri-apps/api/core';
 import { useOptionStore } from '../store/option';
+import { getDefaultPrompt } from '../utils/function';
 
 const useAiChat = () => {
     const sendRequest = (url, method, headers, body, proxy) => {
@@ -280,25 +281,47 @@ const useAiChat = () => {
         })
     };
 
+    const getAIPrompt = (str, type) => {
+        if(type != 'annotation' && type != 'translation'){
+            return {
+                code: 500,
+                msg: "未知的类型"
+            }
+        }
+
+        const optionStore = useOptionStore();
+        const aiPromptOption = optionStore.getAIPromptOption();
+        const defaultPromptOption = getDefaultPrompt();
+
+        const basePrompt = aiPromptOption[type] ? aiPromptOption[type] : defaultPromptOption[type];
+        const prompt = basePrompt.replace("${var}", str);
+
+        return {
+            code: 200,
+            data: prompt
+        }
+    }
+
     const aiAnnotation = (wordsString)=>{
         return new Promise((resolve, reject) => {
-            const prompt = `你是一个语言专家，用户会把单词以数组形式发给你，请你以简体中文的形式返回给用户，并解释单词词性、单词读音、单词中文释义、附加说明、以及其适用性是仅限于本课文输出0，该语言通用输出1。
-以如下格式返回，每个单词之前用2个换行隔开，不要输出多余的话：
-单词：单词内容
-词性：可选输出 noun,numeral,measure_word,verb,adjective,distinguishing_word,adverb,conjunction,preposition,auxiliary,modal_particle,phrase,sentence_fragment,pronoun,interjection,onomatopoeia,morpheme,other
-读音：
-中文释义：
-附加说明：
-适用性：可选输出 0,1
-
-单词：${wordsString}`
-
             const optionStore = useOptionStore();
             const aiOption = optionStore.getAIOption();
+            const promptObj = getAIPrompt(wordsString, 'annotation');
+            if(promptObj.code != 200){
+                reject(promptObj.msg);
+                return;
+            }
+
+            const prompt = promptObj.data;
             const nowAiPlatform = aiOption.nowAiPlatform;
             const model = aiOption[nowAiPlatform].model;
             const apiKey = aiOption[nowAiPlatform].apiKey;
             const proxy = aiOption[nowAiPlatform].proxy;
+
+            if(!model || !apiKey){
+                reject("请先填入AI平台配置");
+                return;
+            }
 
             switch(nowAiPlatform){
                 case 'ChatGLM':
@@ -343,11 +366,6 @@ const useAiChat = () => {
     }
 
     return {
-        chatGLM,
-        deepSeek,
-        groq,
-        google,
-        chatGPT,
         aiAnnotation
     };
 };
