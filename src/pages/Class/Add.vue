@@ -8,15 +8,18 @@
     import { show_error, show_loading } from '../../utils/function';
     import Breadcrumb from '../../components/Breadcrumb.vue';
     import useClass from '../../hooks/useClass';
+    import useAiChat from '../../hooks/useAiChat';
 
     const router = useRouter();
     const route = useRoute();
     const languagesStore = useLanguagesStore();
     const voicesStore = useVoicesStore();
     const { addClass, getNoFinishClass } = useClass();
+    const {aiTranslation} = useAiChat();
     const languageId = route.params.id;
     const language = languagesStore.getItemById(languageId);
     const step_1_finish = ref(false);
+    const aiTranslationLoading = ref(false);
 
     // 查询是否有未消完成的课程
     getNoFinishClass(languageId).then((result)=>{
@@ -36,6 +39,19 @@
         language: "",
         voice: ""
     });
+
+    const handleAITranslation = ()=>{
+        aiTranslationLoading.value = true;
+        const loadingObj = show_loading("正在翻译……");
+        aiTranslation(form.content).then((result)=>{
+            form.translation = result;
+        }).catch((error)=>{
+            show_error(error, "AI翻译失败");
+        }).finally(()=>{
+            aiTranslationLoading.value = false;
+            loadingObj.close();
+        })
+    }
 
     const nextStep = ()=>{
         if(form.title == "" || form.content == "" || form.voice == ""){
@@ -62,7 +78,6 @@
         const loadingObj = show_loading("正在进行配音和分词...");
 
         voicesStore.startTTS(form.voice,form.content, true).then((result)=>{
-            console.log(result)
             if(result.code == 200){
                 return addClass({
                     languageId: languageId,
@@ -128,6 +143,7 @@
                     <el-input v-model="form.translation" type="textarea" placeholder="课文翻译，可不填，后续可更改"/>
                 </el-form-item>
                 <el-form-item>
+                    <el-button type="success" @click="handleAITranslation" :loading="aiTranslationLoading" v-if="step_1_finish">AI翻译</el-button>
                     <el-button type="primary" @click="nextStep">下一步</el-button>
                 </el-form-item>
             </el-form>

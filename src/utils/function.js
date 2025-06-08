@@ -37,7 +37,10 @@ function show_loading(text){
         close: function(){
             loading.close();
         },
-        loading
+        loading,
+        setText: function(text){
+            loading.text = text;
+        }
     }
 }
 

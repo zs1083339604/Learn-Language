@@ -11,6 +11,7 @@
     import WordBox from '../../components/WordBox.vue';
     import { Headset, VideoPlay } from '@element-plus/icons-vue'
     import { useLanguagesStore } from '../../store/languages';
+    import useAiChat from '../../hooks/useAiChat';
 
     const loadingObj = show_loading("正在获取数据……");
     const router = useRouter();
@@ -19,6 +20,7 @@
     const classId = ref(route.params.id);
     const {getClassFullInfoByID, editTranslationById, deleteClass} = useClass();
     const {getWordsByClassId, updateWordById} = useWord();
+    const {aiTranslation} = useAiChat();
 
     let classInfo = reactive({
         translation: ""
@@ -28,8 +30,9 @@
     wordArray = ref([]),
     sentenceArray = ref([]);
 
-    const punctuationReg = /[，。？！【】（）《》“”‘’；：\.\,\[\]\<\>「」]/;
+    const punctuationReg = /[，。？！【】（）《》“”；：\.\,\[\]\<\>\"\'「」]/;
     const sentenceDrawer = ref(false);
+    const aiTranslationLoading = ref(false);
 
     const contentArray = ref([]);
     const tabsName = ref("mainText");
@@ -97,6 +100,10 @@
             return;
         }
 
+        if(!result.rows[0].translation){
+            // 译文不能为null或undefined
+            result.rows[0].translation = "";
+        }
         Object.assign(classInfo, result.rows[0])
 
         return readClassData(classInfo);
@@ -212,6 +219,17 @@
             if(error != "cancel"){
                 show_error(error);
             }
+        })
+    }
+
+    const handleAITranslation = ()=> {
+        aiTranslationLoading.value = true;
+        aiTranslation(classInfo.content).then((result)=>{
+            classInfo.translation = result;
+        }).catch((error)=>{
+            show_error(error, "AI翻译失败");
+        }).finally(()=>{
+            aiTranslationLoading.value = false;
         })
     }
 
@@ -480,7 +498,7 @@
                                     v-for="bItem in item.child" 
                                     :class="{'active': currentAudioTime > bItem.startTime && currentAudioTime < bItem.endTime}"
                                 >
-                                    {{ bItem.content }}
+                                    {{ bItem.content.replace(/ /g, '&nbsp;') }}
                                 </span>
                             </p>
                             <br v-if="item.isBr" />
@@ -522,6 +540,7 @@
             <template #footer>
                 <div class="dialog-footer">
                     <el-button @click="dialogTranslationEditVisible = false">取消</el-button>
+                    <el-button type="success" @click="handleAITranslation" :loading="aiTranslationLoading">AI翻译</el-button>
                     <el-button type="primary" @click="handleEditTranslation">确认</el-button>
                 </div>
             </template>

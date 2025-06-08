@@ -7,6 +7,7 @@ export const useOptionStore = defineStore("option", {
             return new Promise((resolve, reject) => {
                 select("option", ['*'], 'id = ?', [1]).then((result)=>{
                     this.option = result.rows[0];
+                    // 解析AI平台的设置
                     this.formatAIOption("ChatGLM");
                     this.formatAIOption("ChatGPT");
                     this.formatAIOption("DeepSeek");
@@ -55,6 +56,15 @@ export const useOptionStore = defineStore("option", {
             }
         },
         saveAIPromptOption(datas){
+            return this.saveOption(datas);
+        },
+        getSoftOption(){
+            return {
+                annotationRule: this.option.annotationRule,
+                annotationNumber: this.option.annotationNumber
+            }
+        },
+        saveSoftOption(datas){
             return this.saveOption(datas);
         }
     },

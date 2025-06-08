@@ -96,6 +96,8 @@ const databseTable = [
             ChatGPT TEXT,
             annotationPrompt TEXT,
             translationPrompt TEXT,
+            annotationRule TEXT DEFAULT 'skip',
+            annotationNumber INTEGER DEFAULT 20
         );
         -- COMMENT ON TABLE option IS '存储设置的表';
         -- COMMENT ON COLUMN option.id IS '主键';
@@ -106,7 +108,24 @@ const databseTable = [
         -- COMMENT ON COLUMN option.Google IS '存储Google的详细设置';
         -- COMMENT ON COLUMN option.ChatGPT IS '存储ChatGPT的详细设置';
         -- COMMENT ON COLUMN option.annotationPrompt IS '单词标注的AI提示词';
-        -- COMMENT ON COLUMN option.translationPrompt IS '翻译的AI提示词';`
+        -- COMMENT ON COLUMN option.translationPrompt IS '翻译的AI提示词';
+        -- COMMENT ON COLUMN option.annotationRule IS 'AI标注单词的规则';
+        -- COMMENT ON COLUMN option.annotationNumber IS 'AI单词标注并发数量';`
+    },{
+        name: 'wordBase64',
+        sql: `CREATE TABLE wordBase64(
+            id INTEGER PRIMARY KEY AUTOINCREMENT NOT NULL,
+            classId INTEGER NOT NULL,
+            word TEXT NOT NULL UNIQUE,
+            base64 TEXT NOT NULL
+        );
+        -- 设置wrod索引
+        CREATE INDEX idx_wordBase64_word ON wordBase64 (word);
+        -- COMMENT ON TABLE wordBase64 IS '存储单词音频的表';
+        -- COMMENT ON COLUMN wordBase64.id IS '主键';
+        -- COMMENT ON COLUMN wordBase64.classId IS '课文ID，仅用于删除课文时使用';
+        -- COMMENT ON COLUMN wordBase64.word IS '单词';
+        -- COMMENT ON COLUMN wordBase64.base64 IS '单词音频的base64';`
     }
 ]
 

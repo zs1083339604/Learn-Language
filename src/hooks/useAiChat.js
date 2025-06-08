@@ -281,6 +281,48 @@ const useAiChat = () => {
         })
     };
 
+    const aiUse = (nowAiPlatform, prompt, model, apiKey, proxy, resolve, reject)=>{
+        switch(nowAiPlatform){
+            case 'ChatGLM':
+                chatGLM(prompt, model, apiKey, proxy).then((result)=>{
+                    resolve(result);
+                }).catch((error)=>{
+                    reject(error);
+                });
+                break;
+            case 'DeepSeek':
+                deepSeek(prompt, model, apiKey, proxy).then((result)=>{
+                    resolve(result);
+                }).catch((error)=>{
+                    reject(error);
+                });
+                break;
+            case 'Groq':
+                groq(prompt, model, apiKey, proxy).then((result)=>{
+                    resolve(result);
+                }).catch((error)=>{
+                    reject(error);
+                });
+                break;
+            case 'Google':
+                google(prompt, model, apiKey, proxy).then((result)=>{
+                    resolve(result);
+                }).catch((error)=>{
+                    reject(error);
+                });
+                break;
+            case 'ChatGPT':
+                chatGPT(prompt, model, apiKey, proxy).then((result)=>{
+                    resolve(result);
+                }).catch((error)=>{
+                    reject(error);
+                });
+                break;
+            default :
+                reject('未知的AI平台');
+        }
+    }
+
     const getAIPrompt = (str, type) => {
         if(type != 'annotation' && type != 'translation'){
             return {
@@ -323,50 +365,39 @@ const useAiChat = () => {
                 return;
             }
 
-            switch(nowAiPlatform){
-                case 'ChatGLM':
-                    chatGLM(prompt, model, apiKey, proxy).then((result)=>{
-                        resolve(result);
-                    }).catch((error)=>{
-                        reject(error);
-                    });
-                    break;
-                case 'DeepSeek':
-                    deepSeek(prompt, model, apiKey, proxy).then((result)=>{
-                        resolve(result);
-                    }).catch((error)=>{
-                        reject(error);
-                    });
-                    break;
-                case 'Groq':
-                    groq(prompt, model, apiKey, proxy).then((result)=>{
-                        resolve(result);
-                    }).catch((error)=>{
-                        reject(error);
-                    });
-                    break;
-                case 'Google':
-                    google(prompt, model, apiKey, proxy).then((result)=>{
-                        resolve(result);
-                    }).catch((error)=>{
-                        reject(error);
-                    });
-                    break;
-                case 'ChatGPT':
-                    chatGPT(prompt, model, apiKey, proxy).then((result)=>{
-                        resolve(result);
-                    }).catch((error)=>{
-                        reject(error);
-                    });
-                    break;
-                default :
-                    reject('未知的AI平台');
-            }
+            aiUse(nowAiPlatform, prompt, model, apiKey, proxy, resolve, reject);
         });
     }
 
+    const aiTranslation = (text) => {
+        return new Promise((resolve, reject) => {
+            const optionStore = useOptionStore();
+            const aiOption = optionStore.getAIOption();
+            const promptObj = getAIPrompt(text, 'translation');
+            if(promptObj.code != 200){
+                reject(promptObj.msg);
+                return;
+            }
+
+            const prompt = promptObj.data;
+            const nowAiPlatform = aiOption.nowAiPlatform;
+            const model = aiOption[nowAiPlatform].model;
+            const apiKey = aiOption[nowAiPlatform].apiKey;
+            const proxy = aiOption[nowAiPlatform].proxy;
+
+            if(!model || !apiKey){
+                reject("请先填入AI平台配置");
+                return;
+            }
+
+            aiUse(nowAiPlatform, prompt, model, apiKey, proxy, resolve, reject);
+        })
+    }
+
     return {
-        aiAnnotation
+        aiAnnotation,
+        getAIPrompt,
+        aiTranslation
     };
 };
 

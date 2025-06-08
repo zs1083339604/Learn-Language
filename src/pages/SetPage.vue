@@ -2,13 +2,14 @@
     import { reactive, ref } from 'vue';
     import AiSettings from '../components/AiSettings.vue';
     import { ElMessage, ElMessageBox } from 'element-plus';
-    import { getDefaultPrompt, show_error } from '../utils/function';
+    import { deepCopy, getDefaultPrompt, show_error } from '../utils/function';
     import { useOptionStore } from '../store/option';
 
     const optionStore = useOptionStore();
     const defaultPrompt = getDefaultPrompt();
     const userPrompt = optionStore.getAIPromptOption();
     const saveAiPromptButtonLoading = ref(false);
+    const saveSoftOptionButtonLoading = ref(false);
     
     const aiPromptForm = reactive({
         annotation: userPrompt.annotation ? userPrompt.annotation : defaultPrompt.annotation,
@@ -82,6 +83,26 @@
             }
         );
     }
+
+    // 软件设置代码
+    const softOptionForm = reactive({
+        annotationRule: 'skip',
+        annotationNumber: 20
+    })
+
+    const softOption = optionStore.getSoftOption();
+    Object.assign(softOptionForm, softOption);
+
+    const saveSoftOption = () => {
+        saveSoftOptionButtonLoading.value = true;
+        optionStore.saveSoftOption(deepCopy(softOptionForm)).then(()=>{
+            ElMessage.success("保存成功");
+        }).catch((error)=>{
+            show_error(error, "保存设置失败");
+        }).finally(()=>{
+            saveSoftOptionButtonLoading.value = false;
+        });
+    }
 </script>
 
 <template>
@@ -105,7 +126,23 @@
                 </div>
             </el-tab-pane>
             <el-tab-pane label="软件设置">
-                软件设置
+                <div class="ai-prompt-option-box">
+                    <el-form :model="softOptionForm" label-width="100">
+                        <el-form-item label="AI标注规则">
+                            <el-radio-group v-model="softOptionForm.annotationRule">
+                                <el-radio value="skip" border>跳过有内容的单词</el-radio>
+                                <el-radio value="all" border>全部标注</el-radio>
+                            </el-radio-group>
+                        </el-form-item>
+                        <el-form-item label="AI标注并发数">
+                            <el-input-number v-model="softOptionForm.annotationNumber" :min="1" :max="2000" />
+                            <span style="color: #ccc; padding-left: 20px;">数字过大可能会导致单词丢失、等待时间过长等问题</span>
+                        </el-form-item>
+                        <el-form-item>
+                            <el-button type="primary" @click="saveSoftOption" :loading="saveSoftOptionButtonLoading">保存设置</el-button>
+                        </el-form-item>
+                    </el-form>
+                </div>
             </el-tab-pane>
         </el-tabs>
     </div>

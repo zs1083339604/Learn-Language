@@ -11,7 +11,8 @@
     import { useAudioPlayer } from '../../hooks/useAudioPlayer';
     import InfiniteList from 'vue3-infinite-list';
     import useAiChat from '../../hooks/useAiChat';
-
+    import { useOptionStore } from '../../store/option';
+    import AIDialogs from '../../components/AIDialogs.vue';
 
     const router = useRouter();
     const route = useRoute();
@@ -20,11 +21,13 @@
     const { getClassFullInfoByID, setFinished } = useClass();
     const { addWords, getWordsByClassId, editWords } = useWord();
     const { aiAnnotation } = useAiChat();
+    const optionStore = useOptionStore();
     const classId = route.params.id;
     const model = route.params.model;
     const nextButtonLoading = ref(false);
     const aiAnnotationLoading = ref(false);
     const semiAutomaticAIAnnotationLoading = ref(false);
+    const aiDialogsRef = ref(null);
 
     const wordBoxBaseObject = {
         id: 0,
@@ -190,13 +193,65 @@
         items.value.splice(index, 1, ...insertArray);
     }
 
-    const handleAIAnnotation = async ()=>{
+    const test = async () => {
+        if (aiDialogsRef.value) {
+            semiAutomaticAIAnnotationLoading.value = true;
+            const showResult = await aiDialogsRef.value.show();
+            console.log(showResult)
+            if (showResult) {
+                ElMessage.success('用户选择或跳过了AI模型，开始后续操作...');
+                semiAutomaticAIAnnotationLoading.value = false;
+                // try {
+                //     const aiResponse = await aiDialogsRef.value.run();
+                //     console.log('AI返回的内容:', aiResponse);
+                //     ElMessage.success('AI内容已提交！');
+                //     // 在这里处理从AI对话框组件返回的数据
+                // } catch (error) {
+                //     ElMessage.warning(`操作被取消或出现错误: ${error.message}`);
+                //     console.error('run方法出错:', error);
+                // }
+            } else {
+                semiAutomaticAIAnnotationLoading.value = false;
+            }
+        }else{
+            show_error("系统错误，无法打开AI对话框");
+        }
+    }
+
+    const handleAIAnnotation = async (auto)=>{
+        if(!auto){
+            // 半自动，查看ref是否准备完全
+            if (aiDialogsRef.value) {
+                // 等待用户反应
+                const showResult = await aiDialogsRef.value.show();
+                if (!showResult) {
+                    return;
+                }
+            }else{
+                show_error("无法打开AI对话框", "系统错误");
+                return;
+            }
+        }
+
         aiAnnotationLoading.value = true;
+        semiAutomaticAIAnnotationLoading.value = true;
+        const loadingObj = show_loading("正在进行AI标注");
+
         const allWordsToAnnotate = [];
         const seenWords = new Set();
+        const softOption = optionStore.getSoftOption();
 
         // 收集所有需要标注的唯一单词
         items.value.forEach(item => {
+            if(softOption.annotationRule == 'skip'){
+                // 如果需要跳过有内容的单词
+                if(item.pronunciation != "" || item.interpretation != "" || item.other != ""){
+                    // 读音、释义、附加说明均为空，视为空内容单词
+                    // 如果有一项目不为空，视为有内容的单词，对于有内容的单词应跳过
+                    return;
+                }
+            }
+            
             const word = item.word;
             if (word && !seenWords.has(word)) {
                 allWordsToAnnotate.push(word);
@@ -204,16 +259,32 @@
             }
         });
 
-        const BATCH_SIZE = 20; // 定义每批发送的单词数量
+        if(allWordsToAnnotate.length == 0){
+            ElMessage.warning("无需要标注的单词");
+            loadingObj.close();
+            aiAnnotationLoading.value = false;
+            semiAutomaticAIAnnotationLoading.value = false;
+            return
+        }
+
+        // 定义每批发送的单词数量
+        const BATCH_SIZE = softOption.annotationNumber;
         let startIndex = 0;
         
         try {
             while (startIndex < allWordsToAnnotate.length) {
                 const currentBatchWords = allWordsToAnnotate.slice(startIndex, startIndex + BATCH_SIZE);
-                
+                const currentBatchWordsString = JSON.stringify(currentBatchWords);
                 // 发送当前批次的单词给AI
                 console.log("当前批次的单词：" + currentBatchWords)
-                const result = await aiAnnotation(JSON.stringify(currentBatchWords)); // 使用 await 等待AI返回
+                let result;
+                if(auto){
+                    // 自动标注
+                    loadingObj.setText("当前进度：" + startIndex + "/" + allWordsToAnnotate.length)
+                    result = await aiAnnotation(currentBatchWordsString);
+                }else{
+                    result = await aiDialogsRef.value.run(currentBatchWords, startIndex,  allWordsToAnnotate.length);
+                }
                 console.log("AI标注结果：", result);
 
                 // 解析AI返回的数据
@@ -241,9 +312,11 @@
 
             ElMessage.success("AI标注完成！");
         } catch (error) {
-            show_error(error, "ai标注失败");
+            show_error(error, "ai标注中断");
         } finally {
+            loadingObj.close();
             aiAnnotationLoading.value = false;
+            semiAutomaticAIAnnotationLoading.value = false;
         }
     }
 
@@ -406,11 +479,13 @@
 
         <div class="word-add-box-tool-box">
             <el-button type="primary" @click="nextStep" :loading="nextButtonLoading">提交</el-button>
-            <el-button type="success" @click="handleAIAnnotation" :loading="aiAnnotationLoading">全自动AI标注</el-button>
-            <el-button type="info" :loading="semiAutomaticAIAnnotationLoading">半自动AI标注（无需API密钥）</el-button>
+            <el-button type="success" @click="handleAIAnnotation(true)" :loading="aiAnnotationLoading">全自动AI标注</el-button>
+            <el-button type="info" @click="handleAIAnnotation(false)" :loading="semiAutomaticAIAnnotationLoading">半自动AI标注（无需API密钥）</el-button>
         </div>
         
         <audio ref="audioRef"></audio>
+
+        <AIDialogs ref="aiDialogsRef" :type="'annotation'"></AIDialogs>
     </div>
 </template>
 
