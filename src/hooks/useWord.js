@@ -1,4 +1,7 @@
 import { insert, select, update, deleteData } from "../utils/sqlite";
+import { useLanguagesStore } from "../store/languages";
+import { useVoicesStore } from "../store/voices";
+import { show_loading } from "../utils/function";
 
 export default ()=>{
 
@@ -77,6 +80,46 @@ export default ()=>{
         return deleteData("word", "classId = ?", [classId]);
     }
 
+    const getWordBase64ByWord = (word, languageId, classId) =>{
+        return new Promise((resolve, reject) => {
+            let base64 = "";
+            // 先从数据库wordBase64表获取
+            select("wordBase64", ["base64"],"word = ?", [word]).then(async (result)=>{
+                if(result.rows.length == 0){
+                    // 数据库中没有单词音频，配音
+                    const loadingObj = show_loading("正在配音……");
+                    const languagesStore = useLanguagesStore();
+                    const languageItem = languagesStore.getItemById(languageId);
+                    const voicesStore = useVoicesStore();
+                    try {
+                        const audioResult = await voicesStore.startTTS(languageItem.voice, word, false);
+                        if(audioResult.code == 200){
+                            // 配音成功，保存数据
+                            base64 = audioResult.data.audio;
+                            await insert("wordBase64", ["classId", "word", "base64"], [classId, word, base64]);
+
+                            resolve(base64);
+                        }else{
+                            throw Error(result.msg);
+                        }
+                    } catch (error) {
+                        reject(error);
+                    }
+
+                    loadingObj.close();
+                }else{
+                    resolve(result.rows[0].base64);
+                }
+            }).catch((error)=>{
+                reject(error)
+            })
+        })
+    }
+
+    const deleteWordBase64ByClassID = (id) => {
+        return deleteData("wordBase64", "classId = ?", [id]);
+    }
+
     return {
         addWord,
         addWords,
@@ -84,6 +127,8 @@ export default ()=>{
         getWordsByClassId,
         updateWordById,
         editWords,
-        deleteWordsByClassId
+        deleteWordsByClassId,
+        getWordBase64ByWord,
+        deleteWordBase64ByClassID
     }
 }

@@ -19,7 +19,7 @@
     const commonWordsStore = useCommonWordsStore();
     const loadingObj = show_loading("正在获取课程信息");
     const { getClassFullInfoByID, setFinished } = useClass();
-    const { addWords, getWordsByClassId, editWords } = useWord();
+    const { addWords, getWordsByClassId, editWords, getWordBase64ByWord } = useWord();
     const { aiAnnotation } = useAiChat();
     const optionStore = useOptionStore();
     const classId = route.params.id;
@@ -111,33 +111,49 @@
         loadingObj.close();
     })
 
-    const {
-        audioRef,
-        audioSrc,
-        playSegmentDirectly
-    } = useAudioPlayer({
-        audioDataRef: audioData
-    });
+    const audioRef = ref(null);
+
+    // 被注释掉的与audio有关的内容，为从完整配音中截取单词播放的代码。
+    // 后因单词改为了单独配音，遂停用。
+    // const {
+    //     audioRef,
+    //     audioSrc,
+    //     playSegmentDirectly
+    // } = useAudioPlayer({
+    //     audioDataRef: audioData
+    // });
 
     const playAudio = (index) => {
-        if (!audioRef.value || !audioSrc.value) {
-            show_error("无音频数据", "无法播放音频");
-            return;
-        }
+        // if (!audioRef.value || !audioSrc.value) {
+        //     show_error("无音频数据", "无法播放音频");
+        //     return;
+        // }
+
         const item = items.value[index];
+
+        getWordBase64ByWord(item.word, classInfo.languageId, classId).then((result)=>{
+            if(audioRef.value){
+                audioRef.value.src = "data:audio/mp3;base64," + result;
+                audioRef.value.play();
+            }else{
+                throw Error("未找到音频播放器");
+            }
+        }).catch((error)=>{
+            show_error(error, "播放单词失败");
+        })
         
-        // 转换时间（微软返回的很怪，不是微秒也不是毫秒）
-        const startTimeNoSub = jsonData[item.startIndex].Metadata[0].Data.Offset;
-        const startTime = startTimeNoSub / 10000000;
-        // 获取结束时间，因为有些单词可能合并过，不能单纯 + Duration
-        const indexArray = getFullWordDataIndexArray(index);
-        const lastIndex = indexArray[indexArray.length - 1];
-        const lastStartTime = jsonData[lastIndex].Metadata[0].Data.Offset;
-        const lastDuration = jsonData[lastIndex].Metadata[0].Data.Duration;
+        // // 转换时间（微软返回的很怪，不是微秒也不是毫秒）
+        // const startTimeNoSub = jsonData[item.startIndex].Metadata[0].Data.Offset;
+        // const startTime = startTimeNoSub / 10000000;
+        // // 获取结束时间，因为有些单词可能合并过，不能单纯 + Duration
+        // const indexArray = getFullWordDataIndexArray(index);
+        // const lastIndex = indexArray[indexArray.length - 1];
+        // const lastStartTime = jsonData[lastIndex].Metadata[0].Data.Offset;
+        // const lastDuration = jsonData[lastIndex].Metadata[0].Data.Duration;
 
-        const duration = (lastStartTime - startTimeNoSub  + lastDuration) / 10000000;
+        // const duration = (lastStartTime - startTimeNoSub  + lastDuration) / 10000000;
 
-        playSegmentDirectly(startTime, duration);
+        // playSegmentDirectly(startTime, duration);
     }
 
     const mergeWord = (event, index) => {
@@ -191,31 +207,6 @@
         }
 
         items.value.splice(index, 1, ...insertArray);
-    }
-
-    const test = async () => {
-        if (aiDialogsRef.value) {
-            semiAutomaticAIAnnotationLoading.value = true;
-            const showResult = await aiDialogsRef.value.show();
-            console.log(showResult)
-            if (showResult) {
-                ElMessage.success('用户选择或跳过了AI模型，开始后续操作...');
-                semiAutomaticAIAnnotationLoading.value = false;
-                // try {
-                //     const aiResponse = await aiDialogsRef.value.run();
-                //     console.log('AI返回的内容:', aiResponse);
-                //     ElMessage.success('AI内容已提交！');
-                //     // 在这里处理从AI对话框组件返回的数据
-                // } catch (error) {
-                //     ElMessage.warning(`操作被取消或出现错误: ${error.message}`);
-                //     console.error('run方法出错:', error);
-                // }
-            } else {
-                semiAutomaticAIAnnotationLoading.value = false;
-            }
-        }else{
-            show_error("系统错误，无法打开AI对话框");
-        }
     }
 
     const handleAIAnnotation = async (auto)=>{

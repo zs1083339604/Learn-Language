@@ -45,6 +45,8 @@ export default ()=>{
     const deleteClass = (filePath, audioFileName, audioSrtJsonName, id)=>{
         const audioFilePath = filePath + "/" + audioFileName,
         audioSrtJsonPath = filePath + "/" + audioSrtJsonName;
+        const {deleteWordsByClassId, deleteWordBase64ByClassID} = useWord();
+
         return new Promise((resolve, reject) => {
             // 删除字幕文件
             remove(audioSrtJsonPath).then(()=>{
@@ -55,8 +57,10 @@ export default ()=>{
                 return remove(filePath);
             }).then(()=>{
                 // 文件删除成功，删除数据库
-                // 先删除所有单词数据
-                const {deleteWordsByClassId} = useWord();
+                // 删除所有单词配音数据
+                return deleteWordBase64ByClassID(id);
+            }).then(()=>{
+                // 删除所有单词数据
                 return deleteWordsByClassId(id);
             }).then(()=>{
                 // 删除课文

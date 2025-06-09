@@ -19,7 +19,7 @@
     const languagesStore = useLanguagesStore();
     const classId = ref(route.params.id);
     const {getClassFullInfoByID, editTranslationById, deleteClass} = useClass();
-    const {getWordsByClassId, updateWordById} = useWord();
+    const {getWordsByClassId, updateWordById, getWordBase64ByWord} = useWord();
     const {aiTranslation} = useAiChat();
 
     let classInfo = reactive({
@@ -79,10 +79,11 @@
         }
 
         const item = contentArray.value[newValue];
+        seek(item.startTime);
         const wordItem = wordArray.value[newValue];
         switch(leftClickRule.value){
             case "play":
-                playSegmentDirectly(item.startTime, item.endTime - item.startTime);
+                playWord(wordItem.content);
                 break;
             case "see":
                 openMeaningDisplay(wordItem.id);
@@ -131,10 +132,13 @@
         playSegmentDirectly,
         currentAudioTime,
         playAudio,
-        pauseAudio
+        pauseAudio,
+        seek
     } = useAudioPlayer({
         audioDataRef: audioData
     });
+
+    const audioWordRef = ref(null);
 
     const isSpanClick = ref(false);
     const pClick = (index)=>{
@@ -147,6 +151,21 @@
                 isSpanClick.value = false;
             })
         }
+    }
+
+    const playWord = (word) => {
+        getWordBase64ByWord(word, classInfo.languageId, classId.value).then((result)=>{
+            // 停止播放音频
+            pauseAudio();
+            if(audioWordRef.value){
+                audioWordRef.value.src = "data:audio/mp3;base64," + result;
+                audioWordRef.value.play();
+            }else{
+                throw Error("未找到音频播放器");
+            }
+        }).catch((error)=>{
+            show_error(error, "播放音频失败")
+        })
     }
 
     const handleDisplayClose = () => {
@@ -562,6 +581,8 @@
 
         <!-- 音频播放 -->
         <audio class="playAudio" ref="audioRef" controls></audio>
+        <!-- 单词播放 -->
+        <audio ref="audioWordRef"></audio>
     </div>
 </template>
 

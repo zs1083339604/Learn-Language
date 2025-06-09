@@ -159,6 +159,21 @@ export function useAudioPlayer(options) {
     };
 
     /**
+     * 跳转到指定时间
+     * @param {number} time 时间（秒）
+     */
+    const seek = (time) => {
+        pauseAudio();
+        // 延迟一段时间执行，避免RAF loop影响currentAudioTime的更新
+        setTimeout(() => {
+            if (audioRef.value) {
+                audioRef.value.currentTime = time;
+                currentAudioTime.value = time + 0.001;
+            }
+        }, 10);
+    }
+
+    /**
      * 暂停音频播放。
      */
     const pauseAudio = () => {
@@ -234,5 +249,6 @@ export function useAudioPlayer(options) {
         stopAudio,
         currentAudioTime, // 当前播放时间以便 UI 更新
         playAudio,
+        seek
     };
 }
