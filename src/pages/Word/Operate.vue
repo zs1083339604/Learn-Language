@@ -133,7 +133,9 @@
 
         getWordBase64ByWord(item.word, classInfo.languageId, classId).then((result)=>{
             if(audioRef.value){
+                const softOption = optionStore.getSoftOption();
                 audioRef.value.src = "data:audio/mp3;base64," + result;
+                audioRef.value.playbackRate = softOption.playSpeed;
                 audioRef.value.play();
             }else{
                 throw Error("未找到音频播放器");
@@ -153,7 +155,7 @@
 
         // const duration = (lastStartTime - startTimeNoSub  + lastDuration) / 10000000;
 
-        // playSegmentDirectly(startTime, duration);
+        // playSegmentDirectly(startTime, startTime + duration);
     }
 
     const mergeWord = (event, index) => {

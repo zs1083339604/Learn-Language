@@ -49,7 +49,7 @@ function deepCopy(obj){
 }
 
 function stringToBoolean(str) {
-    if (str === 'true') {
+    if (str === 'true' || str == '1') {
         return true;
     } else if (str === 'false') {
         return false;

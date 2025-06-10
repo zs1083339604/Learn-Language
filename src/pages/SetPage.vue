@@ -87,7 +87,9 @@
     // 软件设置代码
     const softOptionForm = reactive({
         annotationRule: 'skip',
-        annotationNumber: 20
+        annotationNumber: 20,
+        showOartOfSpeech: true,
+        playSpeed: '1.0'
     })
 
     const softOption = optionStore.getSoftOption();
@@ -137,6 +139,26 @@
                         <el-form-item label="AI标注并发数">
                             <el-input-number v-model="softOptionForm.annotationNumber" :min="1" :max="2000" />
                             <span style="color: #ccc; padding-left: 20px;">数字过大可能会导致单词丢失、等待时间过长等问题</span>
+                        </el-form-item>
+                        <el-form-item label="显示词性条">
+                            <el-switch
+                                v-model="softOptionForm.showOartOfSpeech"
+                                inline-prompt
+                                active-text="是"
+                                inactive-text="否"
+                            />
+                        </el-form-item>
+                        <el-form-item label="播放速率">
+                            <el-radio-group v-model="softOptionForm.playSpeed">
+                                <el-radio-button label="0.25" value="0.25" />
+                                <el-radio-button label="0.5" value="0.5" />
+                                <el-radio-button label="0.75" value="0.75" />
+                                <el-radio-button label="1.0" value="1.0" />
+                                <el-radio-button label="1.25" value="1.25" />
+                                <el-radio-button label="1.5" value="1.5" />
+                                <el-radio-button label="1.75" value="1.75" />
+                                <el-radio-button label="2.0" value="2.0" />
+                            </el-radio-group>
                         </el-form-item>
                         <el-form-item>
                             <el-button type="primary" @click="saveSoftOption" :loading="saveSoftOptionButtonLoading">保存设置</el-button>

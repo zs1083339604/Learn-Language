@@ -125,9 +125,9 @@ export function useAudioPlayer(options) {
     /**
      * 播放指定时间段的音频。
      * @param {number} startTimeInSeconds 开始时间 (秒)
-     * @param {number} durationInSeconds 持续时间 (秒)
+     * @param {number} endTimeInSeconds 结束时间 (秒)
      */
-    const playSegmentDirectly = (startTimeInSeconds, durationInSeconds) => {
+    const playSegmentDirectly = (startTimeInSeconds, endTimeInSeconds) => {
         if (!audioRef.value || !audioSrc.value) {
             ElMessage.error("无音频数据，无法播放片段");
             return;
@@ -136,8 +136,6 @@ export function useAudioPlayer(options) {
         if(!audioRef.value.paused){
             stopAudio(); // 停止当前播放
         }
-
-        const endTime = startTimeInSeconds + durationInSeconds;
 
         // 检查音频是否加载完成
         // if (audioRef.value.readyState < 2) {
@@ -150,8 +148,7 @@ export function useAudioPlayer(options) {
         // }
 
         audioRef.value.currentTime = startTimeInSeconds;
-        currentPlayingSegment = { startTime: startTimeInSeconds, endTime: endTime };
-
+        currentPlayingSegment = { startTime: startTimeInSeconds, endTime: endTimeInSeconds };
         audioRef.value.play().catch(e => {
             console.error("播放片段失败:", e);
             ElMessage.error("播放片段失败：" + e.message);

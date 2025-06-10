@@ -12,6 +12,8 @@
     import { Headset, VideoPlay } from '@element-plus/icons-vue'
     import { useLanguagesStore } from '../../store/languages';
     import useAiChat from '../../hooks/useAiChat';
+    import { useOptionStore } from '../../store/option';
+    import { storeToRefs } from 'pinia';
 
     const loadingObj = show_loading("正在获取数据……");
     const router = useRouter();
@@ -21,6 +23,8 @@
     const {getClassFullInfoByID, editTranslationById, deleteClass} = useClass();
     const {getWordsByClassId, updateWordById, getWordBase64ByWord} = useWord();
     const {aiTranslation} = useAiChat();
+    const optionStore = useOptionStore();
+    const {option} = storeToRefs(optionStore);
 
     let classInfo = reactive({
         translation: ""
@@ -78,8 +82,11 @@
             return;
         }
 
-        const item = contentArray.value[newValue];
-        seek(item.startTime);
+        if(leftClickRule.value != "read"){
+            const item = contentArray.value[newValue];
+            seek(item.startTime);
+        }
+        
         const wordItem = wordArray.value[newValue];
         switch(leftClickRule.value){
             case "play":
@@ -90,6 +97,9 @@
                 break;
             case "edit":
                 editWord(wordItem);
+                break;
+            case "read":
+                readSentence(newValue);
                 break;
         }
     });
@@ -140,6 +150,11 @@
 
     const audioWordRef = ref(null);
 
+    // 监听2个音频播放器
+    watch([audioRef, audioWordRef, option.value], (newValue, oldValue)=>{
+        setAudioPlaybackRate(option.value.playSpeed, 'audio');
+    }, { immediate: true })
+
     const isSpanClick = ref(false);
     const pClick = (index)=>{
         if(!isSpanClick.value){
@@ -159,6 +174,7 @@
             pauseAudio();
             if(audioWordRef.value){
                 audioWordRef.value.src = "data:audio/mp3;base64," + result;
+                setAudioPlaybackRate(option.value.playSpeed, "word");
                 audioWordRef.value.play();
             }else{
                 throw Error("未找到音频播放器");
@@ -171,6 +187,64 @@
     const handleDisplayClose = () => {
         isDisplayingWordMeaning.value = false;
     };
+
+    function setAudioPlaybackRate(playbackRate, ref = 'all'){
+        if(audioRef.value && ref != 'word'){
+            audioRef.value.playbackRate = playbackRate;
+        }
+
+        if(audioWordRef.value && ref != 'audio'){
+            audioWordRef.value.playbackRate = playbackRate;
+        }
+    }
+
+    function readSentence(index){
+        // 确保 index 在有效范围内
+        index = Math.max(0, Math.min(index, contentArray.value.length - 1));
+
+        let foundStartTime = contentArray.value[0].startTime; // 默认值：数组第一个对象的 startTime
+        let foundEndTime = contentArray.value[contentArray.value.length - 1].endTime; // 默认值：数组最后一个对象的 endTime
+
+        // --- 向前查找 startTime (从 index - 1 开始) ---
+        // 目标：找到第一个符合正则的项 A，然后取 A 后面一项的 startTime
+        for (let i = index - 1; i >= 0; i--) {
+            const currentItem = contentArray.value[i];
+            if (currentItem.child && currentItem.child.length > 0) {
+                for (let j = 0; j < currentItem.child.length; j++) {
+                    if (punctuationReg.test(currentItem.child[j].content)) {
+                        // 找到了符合正则的项，现在我们取它的下一项的 startTime
+                        // 检查 i + 1 是否还在数组范围内
+                        if (i + 1 < contentArray.value.length) {
+                            foundStartTime = contentArray.value[i + 1].startTime;
+                        } else {
+                            // 如果 i 已经是数组最后一项，那么 i + 1 就不存在了，
+                            // 这种情况下，默认值 (contentArray.value[0].startTime) 可能是合适的
+                        }
+                        i = -1; // 强制退出循环，因为已经找到目标
+                        break;
+                    }
+                }
+            }
+        }
+
+        // --- 向后查找 endTime (从 index 开始) ---
+        for (let i = index; i < contentArray.value.length; i++) {
+            const currentItem = contentArray.value[i];
+            if (currentItem.child && currentItem.child.length > 0) {
+                for (let j = 0; j < currentItem.child.length; j++) {
+                    if (punctuationReg.test(currentItem.child[j].content)) {
+                        // 找到第一个符合的，就用它的 endTime
+                        foundEndTime = currentItem.child[j].endTime;
+                        i = contentArray.value.length; // 强制退出循环
+                        break;
+                    }
+                }
+            }
+        }
+
+        playSegmentDirectly(foundStartTime, foundEndTime);
+
+    }
 
     function editWord(item){
         Object.assign(wordEditData, item, {
@@ -255,17 +329,17 @@
     const playSentence = (index)=>{
         const item = sentenceArray.value[index];
         // console.log(sentenceArray.value[index])
-        playSegmentDirectly(item.startTime, item.endTime - item.startTime)
+        playSegmentDirectly(item.startTime, item.endTime)
     }
 
     function openDialog(){
         // 对话框打开停止监听
-        window.removeEventListener('keyup', handleKeyUp);
+        window.removeEventListener('keydown', handleKeyDown);
     }
 
     function closeDialog(){
         // 对话框关闭重新监听
-        window.addEventListener('keyup', handleKeyUp);
+        window.addEventListener('keydown', handleKeyDown);
     }
 
     function openMeaningDisplay(id){
@@ -398,31 +472,36 @@
     }
 
     // --- 键盘事件监听 ---
-    const handleKeyUp = (event) => {
-        if(event.code == "Space"){
-            handlePlayAudio();
-            event.preventDefault();
-        }else if(event.code == "KeyT"){
-            changeTab();
-            event.preventDefault();
-        }else if(event.code == "KeyR"){
-            changeLeftClickRule("play");
-        }else if(event.code == "KeyE"){
-            changeLeftClickRule("edit");
-        }else if(event.code == "KeyS"){
-            changeLeftClickRule("see");
-        }else if(event.code == "KeyC"){
-            closeMeaningDisplay();
-        }else if(event.code == "ArrowUp"){
-            if(nowWordOperateIndex.value < contentArray.value.length - 1){
-                nowWordOperateIndex.value++;
+    const handleKeyDown = (event) => {
+        if(!event.repeat){
+            // 只有在不重复时才触发
+            if(event.code == "Space"){
+                handlePlayAudio();
+                event.preventDefault();
+            }else if(event.code == "KeyT"){
+                changeTab();
+                event.preventDefault();
+            }else if(event.code == "KeyP"){
+                changeLeftClickRule("play");
+            }else if(event.code == "KeyR"){
+                changeLeftClickRule("read");
+            }else if(event.code == "KeyE"){
+                changeLeftClickRule("edit");
+            }else if(event.code == "KeyS"){
+                changeLeftClickRule("see");
+            }else if(event.code == "KeyC"){
+                closeMeaningDisplay();
+            }else if(event.code == "ArrowUp"){
+                if(nowWordOperateIndex.value < contentArray.value.length - 1){
+                    nowWordOperateIndex.value++;
+                }
+                event.preventDefault();
+            }else if(event.code == "ArrowDown"){
+                if(nowWordOperateIndex.value > 0){
+                    nowWordOperateIndex.value--;
+                }
+                event.preventDefault();
             }
-            event.preventDefault();
-        }else if(event.code == "ArrowDown"){
-            if(nowWordOperateIndex.value > 0){
-                nowWordOperateIndex.value--;
-            }
-            event.preventDefault();
         }
     };
 
@@ -451,6 +530,8 @@
         leftClickRule.value = rule;
         if(rule == "play"){
             showNotification("左键点击：播放音频");
+        }else if(rule == "read"){
+            showNotification("左键点击：播放句子");
         }else if(rule == "edit"){
             showNotification("左键点击：编辑单词");
         }else if(rule == "see"){
@@ -474,11 +555,11 @@
     }
 
     onMounted(() => {
-        window.addEventListener('keyup', handleKeyUp);
+        window.addEventListener('keydown', handleKeyDown);
     });
 
     onBeforeUnmount(() => {
-        window.removeEventListener('keyup', handleKeyUp);
+        window.removeEventListener('keydown', handleKeyDown);
     });
 </script>
 
@@ -493,6 +574,7 @@
                     <p>点击规则：</p>
                     <el-radio-group v-model="leftClickRule">
                         <el-radio-button label="播放单词" value="play" />
+                        <el-radio-button label="播放句子" value="read" />
                         <el-radio-button label="查看释义" value="see" />
                         <el-radio-button label="编辑单词" value="edit" />
                     </el-radio-group>
@@ -501,7 +583,7 @@
                     <p>全篇工具：</p>
                     <el-button @click="editWords">编辑单词</el-button>
                     <el-button @click="dialogTranslationEditVisible = true">编辑译文</el-button>
-                    <el-button type="success" @click="sentenceDrawer = true">句子朗读</el-button>
+                    <el-button type="success" @click="sentenceDrawer = true">句子列表</el-button>
                     <el-button type="danger" @click="handleDeleteClass">删除课文</el-button>
                 </div>
             </div>
@@ -512,7 +594,7 @@
                 >
                     <el-tab-pane label="正文" name="mainText">
                         <template v-for="item,index in contentArray">
-                            <p @click="pClick(index)" :class="['word-p', `pos-${wordArray[index].oartOfSpeech}`]">
+                            <p @click="pClick(index)" :class="['word-p', `pos-${wordArray[index].oartOfSpeech}`, {'hide-pos': !option.showOartOfSpeech}]">
                                 <span 
                                     v-for="bItem in item.child" 
                                     :class="{'active': currentAudioTime > bItem.startTime && currentAudioTime < bItem.endTime}"
@@ -631,6 +713,10 @@
         margin-bottom: 20px;
         border: 1px solid #ccc;
         padding: 5px;
+    }
+
+    .word-p.hide-pos::after{
+        display: none;
     }
 
     .word-p{

@@ -1,5 +1,6 @@
 import { defineStore } from "pinia";
 import { select, insert, update } from "../utils/sqlite";
+import { stringToBoolean } from "../utils/function";
 
 export const useOptionStore = defineStore("option", {
     actions: {
@@ -13,6 +14,8 @@ export const useOptionStore = defineStore("option", {
                     this.formatAIOption("DeepSeek");
                     this.formatAIOption("Google");
                     this.formatAIOption("Groq");
+
+                    this.option.showOartOfSpeech = stringToBoolean(this.option.showOartOfSpeech);
                     resolve();
                 }).catch((error)=>{
                     reject(error);
@@ -61,7 +64,9 @@ export const useOptionStore = defineStore("option", {
         getSoftOption(){
             return {
                 annotationRule: this.option.annotationRule,
-                annotationNumber: this.option.annotationNumber
+                annotationNumber: this.option.annotationNumber,
+                showOartOfSpeech: this.option.showOartOfSpeech,
+                playSpeed: this.option.playSpeed
             }
         },
         saveSoftOption(datas){

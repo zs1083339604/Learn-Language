@@ -80,7 +80,7 @@ const databseTable = [
         -- COMMENT ON COLUMN word.interpretation IS '单词意思';
         -- COMMENT ON COLUMN word.other IS '单词附加说明';
         -- COMMENT ON COLUMN word.applicable IS '单词的适用性，0只适用本课，1适用本语言全部课文';
-        -- COMMENT ON COLUMN word.spell IS '单词是否可以背写，0不可以，1可以';
+        -- COMMENT ON COLUMN word.spell IS '单词是否可以背写';
         -- COMMENT ON COLUMN word.startIndex IS '单词在字幕文件中的数组的下标';
         -- COMMENT ON COLUMN word.sort IS '排序';
         -- COMMENT ON COLUMN word.createTime IS '创建时间';`
@@ -97,7 +97,9 @@ const databseTable = [
             annotationPrompt TEXT,
             translationPrompt TEXT,
             annotationRule TEXT DEFAULT 'skip',
-            annotationNumber INTEGER DEFAULT 20
+            annotationNumber INTEGER DEFAULT 20,
+            showOartOfSpeech INTEGER DEFAULT 1,
+            playSpeed TEXT DEFAULT '1.0'
         );
         -- COMMENT ON TABLE option IS '存储设置的表';
         -- COMMENT ON COLUMN option.id IS '主键';
@@ -110,7 +112,10 @@ const databseTable = [
         -- COMMENT ON COLUMN option.annotationPrompt IS '单词标注的AI提示词';
         -- COMMENT ON COLUMN option.translationPrompt IS '翻译的AI提示词';
         -- COMMENT ON COLUMN option.annotationRule IS 'AI标注单词的规则';
-        -- COMMENT ON COLUMN option.annotationNumber IS 'AI单词标注并发数量';`
+        -- COMMENT ON COLUMN option.annotationNumber IS 'AI单词标注并发数量';
+        -- COMMENT ON COLUMN option.showOartOfSpeech IS '是否显示词性条-在显示页面单词下方的不同颜色的条块';
+        -- COMMENT ON COLUMN option.playSpeed IS '播放速度';
+        `
     },{
         name: 'wordBase64',
         sql: `CREATE TABLE wordBase64(
